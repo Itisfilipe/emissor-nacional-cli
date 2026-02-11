@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import yaml
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
-from emissor.cli import main, _init_config, _preflight
+from emissor.cli import _init_config, _preflight, main
 
 
 class TestMain:
@@ -28,9 +28,8 @@ class TestMain:
 
     @patch("emissor.cli._preflight", return_value=False)
     def test_exit_1_on_failure(self, mock_preflight):
-        with patch("sys.argv", ["emissor-nacional"]):
-            with pytest.raises(SystemExit, match="1"):
-                main()
+        with patch("sys.argv", ["emissor-nacional"]), pytest.raises(SystemExit, match="1"):
+            main()
 
 
 class TestPreflight:
