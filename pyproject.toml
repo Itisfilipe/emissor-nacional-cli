@@ -1,10 +1,9 @@
 [project]
-name = "emissor"
+name = "emissor-nacional"
 version = "0.1.0"
 description = "CLI para emissão automatizada de NFS-e Nacional"
 requires-python = ">=3.13"
 dependencies = [
-    "click>=8.1",
     "lxml>=5.0",
     "signxml>=4.0",
     "requests>=2.31",
@@ -14,15 +13,17 @@ dependencies = [
     "python-dotenv>=1.0",
     "rich>=13.0",
     "filelock>=3.0",
+    "textual>=1.0",
 ]
 
 [project.scripts]
-emissor = "emissor.cli:cli"
+emissor-nacional = "emissor.cli:main"
 
 [dependency-groups]
 dev = [
     "pytest>=9.0",
     "pytest-cov>=6.0",
+    "pytest-asyncio>=0.24",
     "pyright>=1.1",
     "ruff>=0.11",
     "lxml-stubs>=0.5.1",
@@ -51,6 +52,7 @@ line-length = 99
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["emissor"]

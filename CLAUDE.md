@@ -1,4 +1,4 @@
-# emissor-py
+# emissor-nacional-cli
 
 CLI for issuing Brazilian NFS-e (electronic service invoices) via the national system (SEFIN/ADN APIs). Focused on service export invoices for international clients.
 
@@ -40,3 +40,7 @@ tests/                     # pytest tests
 - **ADN**: Government API for querying/downloading issued NFS-e
 - Config files are YAML; real ones are gitignored, `.example` files are committed
 - `EMISSOR_CONFIG_DIR` / `EMISSOR_DATA_DIR` env vars override default path resolution
+
+## TUI design rules
+
+- **Buttons must always have an icon** prefix to distinguish them from other text elements. Use Unicode symbols: `←` (back), `▶` (action/go), `⇓` (download), `↑` (send/upload), `⎘` (copy), `▷` (filter), `⇄` (toggle)

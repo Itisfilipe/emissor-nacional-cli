@@ -8,7 +8,9 @@ dist/
 *.egg-info/
 .venv/
 data/issued/*.xml
+data/*/issued/*.xml
 data/sequence.json
+data/sequence.lock
 config/emitter.yaml
 config/clients/*.yaml
 *.p12

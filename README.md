@@ -1,4 +1,4 @@
-# emissor-py
+# Emissor Nacional - CLI para emissão de NFS-e via sistema nacional da Receita Federal do Brasil
 
 CLI para emissão automatizada de NFS-e (Nota Fiscal de Serviço Eletrônica) via o sistema nacional da Receita Federal do Brasil. Voltado para prestadores de serviço que emitem notas para clientes no exterior (exportação de serviços).
 
@@ -31,7 +31,7 @@ CERT_PFX_PATH=/caminho/para/certificado.pfx
 CERT_PFX_PASSWORD=sua-senha
 ```
 
-Se instalar o pacote fora do repositório (ex: via `pip install`), defina também:
+Se instalar o pacote fora do repositório (ex: via `pip install emissor-nacional`), defina também:
 
 ```env
 EMISSOR_CONFIG_DIR=/caminho/para/config
@@ -42,36 +42,36 @@ EMISSOR_DATA_DIR=/caminho/para/data
 
 ```bash
 # Validar certificado e configuração
-uv run emissor validate
+uv run emissor-nacional validate
 
 # Emitir NFS-e
-uv run emissor emit seu-cliente \
+uv run emissor-nacional nova seu-cliente \
     --valor-brl 19684.93 \
     --valor-usd 3640.00 \
     --competencia 2025-12-30
 
 # Emitir com intermediário
-uv run emissor emit seu-cliente \
+uv run emissor-nacional nova seu-cliente \
     --valor-brl 53526.58 \
     --valor-usd 10221.04 \
     --competencia 2025-12-23 \
     --intermediario intermediary
 
 # Dry run (gera XML sem enviar)
-uv run emissor emit seu-cliente \
+uv run emissor-nacional nova seu-cliente \
     --valor-brl 19684.93 \
     --valor-usd 3640.00 \
     --competencia 2025-12-30 \
     --dry-run
 
 # Consultar NFS-e pela chave de acesso
-uv run emissor query <chave-de-acesso>
+uv run emissor-nacional query <chave-de-acesso>
 
 # Baixar DANFSE em PDF
-uv run emissor pdf <chave-de-acesso> -o nota.pdf
+uv run emissor-nacional pdf <chave-de-acesso> -o nota.pdf
 
 # Usar ambiente de produção (padrão: homologação)
-uv run emissor --env producao emit ...
+uv run emissor-nacional --env producao emit ...
 ```
 
 ## Desenvolvimento
