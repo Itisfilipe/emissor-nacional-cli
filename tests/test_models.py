@@ -32,7 +32,7 @@ class TestEmitter:
         assert e.op_simp_nac == "1"
         assert e.reg_esp_trib == "0"
         assert e.serie == "900"
-        assert e.ver_aplic == "emissor-py_0.1.0"
+        assert e.ver_aplic == "emissor-nacional_0.1.0"
 
     def test_from_dict_missing_required(self):
         with pytest.raises(KeyError):

@@ -40,7 +40,7 @@ def emitter_dict() -> dict:
         "op_simp_nac": "1",
         "reg_esp_trib": "0",
         "serie": "900",
-        "ver_aplic": "emissor-py_0.1.0",
+        "ver_aplic": "emissor-nacional_0.1.0",
     }
 
 
