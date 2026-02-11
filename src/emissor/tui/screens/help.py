@@ -29,7 +29,7 @@ class HelpScreen(ModalScreen):
         log.write("[bold]Emissor Nacional CLI[/bold]")
         log.write("")
         log.write(
-            "Ferramenta para emissao de NFS-e (Nota Fiscal de Servico Eletronica) "
+            "Ferramenta para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) "
             "via Sistema Nacional da SEFIN/ADN."
         )
         log.write("")
@@ -37,19 +37,19 @@ class HelpScreen(ModalScreen):
         log.write("[bold]Atalhos de teclado[/bold]")
         log.write("")
         log.write("  [bold cyan]n[/bold cyan]  Nova NFS-e         Emitir uma nova nota fiscal")
-        log.write("  [bold cyan]c[/bold cyan]  Consultar          Consultar NFS-e por chave de acesso")
+        log.write("  [bold cyan]c[/bold cyan]  Consultar          Consultar NFS-e por chave")
         log.write("  [bold cyan]p[/bold cyan]  Baixar PDF         Baixar DANFSE em PDF")
-        log.write("  [bold cyan]y[/bold cyan]  Copiar chave       Copiar chave de acesso para clipboard")
-        log.write("  [bold cyan]s[/bold cyan]  Sincronizar        Buscar notas do servidor ADN")
-        log.write("  [bold cyan]v[/bold cyan]  Validar            Validar certificado e configuracao")
-        log.write("  [bold cyan]e[/bold cyan]  Ambiente           Alternar entre producao e homologacao")
+        log.write("  [bold cyan]y[/bold cyan]  Copiar chave       Copiar chave para clipboard")
+        log.write("  [bold cyan]s[/bold cyan]  Sincronizar        Buscar notas do servidor")
+        log.write("  [bold cyan]v[/bold cyan]  Validar            Validar certificado e config.")
+        log.write("  [bold cyan]e[/bold cyan]  Ambiente           Alternar produção/homologação")
         log.write("  [bold cyan]f[/bold cyan]  Filtrar            Focar nos campos de data")
         log.write("  [bold cyan]h[/bold cyan]  Ajuda              Esta tela")
-        log.write("  [bold cyan]q[/bold cyan]  Sair               Encerrar aplicacao")
+        log.write("  [bold cyan]q[/bold cyan]  Sair               Encerrar aplicação")
         log.write("")
-        log.write("[bold]Navegacao na tabela[/bold]")
+        log.write("[bold]Navegação na tabela[/bold]")
         log.write("")
-        log.write("  [bold cyan]j / \u2193[/bold cyan]  Proxima linha")
+        log.write("  [bold cyan]j / \u2193[/bold cyan]  Próxima linha")
         log.write("  [bold cyan]k / \u2191[/bold cyan]  Linha anterior")
         log.write("  [bold cyan]enter[/bold cyan]   Abrir nota selecionada")
         log.write("")
@@ -58,23 +58,23 @@ class HelpScreen(ModalScreen):
         log.write("")
         log.write(
             "Este software utiliza as APIs do Sistema Nacional NFS-e "
-            "(SEFIN e ADN) para emissao e consulta de notas fiscais de servico. "
-            "Requer certificado digital ICP-Brasil A1 (.pfx) valido."
+            "(SEFIN e ADN) para emissão e consulta de notas fiscais de serviço. "
+            "Requer certificado digital ICP-Brasil A1 (.pfx) válido."
         )
         log.write("")
 
         log.write("[bold yellow]Aviso[/bold yellow]")
         log.write("")
         log.write(
-            "Este software e fornecido \"como esta\", sem garantias de qualquer tipo. "
-            "O usuario e responsavel por verificar a conformidade das notas emitidas "
-            "com a legislacao vigente. Consulte seu contador para orientacao fiscal."
+            "Este software é fornecido \"como está\", sem garantias de qualquer tipo. "
+            "O usuário é responsável por verificar a conformidade das notas emitidas "
+            "com a legislação vigente. Consulte seu contador para orientação fiscal."
         )
         log.write("")
         log.write(
-            "As operacoes em ambiente de [bold red]PRODUCAO[/bold red] geram documentos "
-            "fiscais reais com validade juridica. Utilize o ambiente de "
-            "[bold yellow]HOMOLOGACAO[/bold yellow] para testes."
+            "As operações em ambiente de [bold red]PRODUÇÃO[/bold red] geram documentos "
+            "fiscais reais com validade jurídica. Utilize o ambiente de "
+            "[bold yellow]HOMOLOGAÇÃO[/bold yellow] para testes."
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

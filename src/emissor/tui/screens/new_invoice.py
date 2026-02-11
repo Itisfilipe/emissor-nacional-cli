@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, DataTable, Input, Label, Select, Static
+
+if TYPE_CHECKING:
+    from emissor.services.emission import PreparedDPS
 
 
 class NewInvoiceScreen(ModalScreen):
@@ -17,7 +22,7 @@ class NewInvoiceScreen(ModalScreen):
 
     def __init__(self) -> None:
         super().__init__()
-        self._prepared = None
+        self._prepared: PreparedDPS | None = None
         self._phase = "form"
         self._result_ch_nfse: str | None = None
 
@@ -35,9 +40,9 @@ class NewInvoiceScreen(ModalScreen):
                 yield Input(placeholder="19684.93", id="valor-brl")
                 yield Label("Valor USD", classes="form-label")
                 yield Input(placeholder="3640.00", id="valor-usd")
-                yield Label("Competencia (YYYY-MM-DD)", classes="form-label")
+                yield Label("Competência (YYYY-MM-DD)", classes="form-label")
                 yield Input(placeholder="2025-12-30", id="competencia")
-                yield Label("Intermediario", classes="form-label")
+                yield Label("Intermediário", classes="form-label")
                 yield Select([], id="intermediario-select", prompt="Nenhum")
                 with Horizontal(classes="button-bar"):
                     yield Button("\u2715 Fechar", id="btn-form-voltar")
@@ -70,6 +75,8 @@ class NewInvoiceScreen(ModalScreen):
         self.query_one("#form-container").display = phase == "form"
         self.query_one("#preview-container").display = phase == "preview"
         self.query_one("#result-container").display = phase == "result"
+        if phase == "form":
+            self.query_one("#btn-preparar", Button).disabled = False
 
     @work(thread=True)
     def _load_clients(self) -> None:
@@ -133,6 +140,7 @@ class NewInvoiceScreen(ModalScreen):
         if inter_sel.value is not Select.BLANK and inter_sel.value != "__none__":
             intermediario = str(inter_sel.value)
 
+        self.query_one("#btn-preparar", Button).disabled = True
         self.notify("Preparando NFS-e…", severity="information", timeout=3)
         self._run_prepare(client_name, valor_brl, valor_usd, competencia, intermediario)
 
@@ -174,10 +182,10 @@ class NewInvoiceScreen(ModalScreen):
         table.add_row("Tomador", f"{prepared.client.nome} (NIF: {prepared.client.nif})")
         if prepared.intermediary:
             inter = prepared.intermediary
-            table.add_row("Intermediario", f"{inter.nome} ({inter.nif})")
+            table.add_row("Intermediário", f"{inter.nome} ({inter.nif})")
         table.add_row("Valor BRL", format_brl(valor_brl))
         table.add_row("Valor USD", format_usd(valor_usd))
-        table.add_row("Competencia", competencia)
+        table.add_row("Competência", competencia)
         table.add_row("nDPS", str(prepared.n_dps))
         env = self.app.env  # type: ignore[attr-defined]
         table.add_row("Ambiente", env)
@@ -188,6 +196,7 @@ class NewInvoiceScreen(ModalScreen):
 
     def _set_error(self, msg: str) -> None:
         self.query_one("#error-label", Label).update(msg)
+        self.query_one("#btn-preparar", Button).disabled = False
 
     def _do_submit(self) -> None:
         if not self._prepared:
@@ -198,10 +207,13 @@ class NewInvoiceScreen(ModalScreen):
 
     @work(thread=True)
     def _run_submit(self) -> None:
+        prepared = self._prepared
+        if prepared is None:
+            return
         try:
             from emissor.services.emission import submit
 
-            result = submit(self._prepared)
+            result = submit(prepared)
             self.app.call_from_thread(self._show_result, result)
         except Exception as e:
             self.app.call_from_thread(self._on_submit_error, f"Erro ao enviar: {e}")
@@ -247,10 +259,13 @@ class NewInvoiceScreen(ModalScreen):
 
     @work(thread=True)
     def _run_save_xml(self) -> None:
+        prepared = self._prepared
+        if prepared is None:
+            return
         try:
             from emissor.services.emission import save_xml
 
-            path = save_xml(self._prepared)
+            path = save_xml(prepared)
             self.app.call_from_thread(self._on_save_success, f"XML salvo em: {path}")
         except Exception as e:
             self.app.call_from_thread(self._on_submit_error, f"Erro ao salvar: {e}")

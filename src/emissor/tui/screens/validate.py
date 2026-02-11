@@ -18,7 +18,7 @@ class ValidateScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         with Vertical(id="modal-dialog"):
             with Horizontal(id="modal-title-bar"):
-                yield Static("Validar Configuracao", id="header-bar")
+                yield Static("Validar Configuração", id="header-bar")
                 yield Button("\u2715", id="btn-modal-close")
             yield RichLog(id="validation-output", wrap=True, markup=True)
             with Horizontal(classes="button-bar"):
@@ -52,25 +52,31 @@ class ValidateScreen(ModalScreen):
             from emissor.utils.certificate import validate_certificate
 
             info = validate_certificate(get_cert_path(), get_cert_password())
-            status = "[green]valido[/green]" if info["valid"] else "[red]expirado[/red]"
+            status = "[green]válido[/green]" if info["valid"] else "[red]expirado[/red]"
             lines.append(f"[green]OK[/green] Certificado: {status}")
             lines.append(f"   Sujeito: {info['subject']}")
             lines.append(f"   Emissor: {info['issuer']}")
-            lines.append(f"   Valido de: {info['not_before']}")
-            lines.append(f"   Valido ate: {info['not_after']}")
+            lines.append(f"   Válido de: {info['not_before']}")
+            lines.append(f"   Válido até: {info['not_after']}")
         except KeyError:
-            lines.append("[red]ERRO[/red] CERT_PFX_PATH ou CERT_PFX_PASSWORD nao definidos")
+            lines.append("[red]ERRO[/red] CERT_PFX_PATH ou CERT_PFX_PASSWORD não definidos")
         except Exception as e:
             lines.append(f"[red]ERRO[/red] Certificado: {e}")
 
         # Clients
         try:
-            from emissor.config import list_clients
+            from emissor.config import list_clients, load_client
+            from emissor.models.client import Client
 
             clients = list_clients()
             if clients:
                 for c in clients:
-                    lines.append(f"[green]OK[/green] Cliente: {c}")
+                    try:
+                        data = load_client(c)
+                        Client.from_dict(data)
+                        lines.append(f"[green]OK[/green] Cliente: {c}")
+                    except Exception as ce:
+                        lines.append(f"[red]ERRO[/red] Cliente {c}: {ce}")
             else:
                 lines.append("[yellow]AVISO[/yellow] Nenhum cliente configurado")
         except Exception as e:

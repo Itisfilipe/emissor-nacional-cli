@@ -11,12 +11,8 @@ from emissor.tui.app import EmissorApp
 
 
 def _patch_data(tmp_path):
-    """Patch both DATA_DIR and REGISTRY_PATH to use tmp_path."""
-    registry_path = tmp_path / "invoices.json"
-    return (
-        patch("emissor.config.DATA_DIR", tmp_path),
-        patch("emissor.utils.registry.REGISTRY_PATH", registry_path),
-    )
+    """Patch get_data_dir to use tmp_path for both issued dirs and registry."""
+    return (patch("emissor.config.get_data_dir", return_value=tmp_path),)
 
 
 # --- Existing tests updated for new layout ---
@@ -105,8 +101,8 @@ async def test_dashboard_vim_j_k_navigation(mock_config, tmp_path):
     (issued / "NFSe_bbb.xml").write_text("<xml/>")
     (issued / "NFSe_ccc.xml").write_text("<xml/>")
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -130,8 +126,8 @@ async def test_dashboard_enter_opens_query(mock_config, tmp_path):
     issued.mkdir(parents=True)
     (issued / "NFSe_abc123.xml").write_text("<xml/>")
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -152,8 +148,8 @@ async def test_dashboard_enter_dry_run_shows_notification(mock_config, tmp_path)
     issued.mkdir(parents=True)
     (issued / "dry_run_dps_42.xml").write_text("<xml/>")
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -181,8 +177,8 @@ async def test_env_toggle_reloads_table(mock_config, tmp_path):
     (prod / "NFSe_prod_1.xml").write_text("<xml/>")
     (prod / "NFSe_prod_2.xml").write_text("<xml/>")
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -215,8 +211,8 @@ async def test_filter_preset_hoje(mock_config, tmp_path):
     old_time = time.time() - 10 * 86400
     os.utime(old_file, (old_time, old_time))
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -242,8 +238,8 @@ async def test_filter_preset_todos(mock_config, tmp_path):
     (issued / "NFSe_b.xml").write_text("<xml/>")
     (issued / "dry_run_dps_1.xml").write_text("<xml/>")
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -269,8 +265,8 @@ async def test_filter_custom_date_range(mock_config, tmp_path):
     old_time = time.time() - 60 * 86400
     os.utime(old, (old_time, old_time))
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -291,103 +287,6 @@ async def test_filter_custom_date_range(mock_config, tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_action_bar_visible_on_row_select(mock_config, tmp_path):
-    """Action bar appears when table has rows."""
-    from textual.containers import Horizontal
-
-    issued = tmp_path / "homologacao" / "issued"
-    issued.mkdir(parents=True)
-    (issued / "NFSe_x.xml").write_text("<xml/>")
-
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
-        app = EmissorApp(env="homologacao")
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            action_bar = app.screen.query_one("#action-bar", Horizontal)
-            assert action_bar.display is True
-
-
-@pytest.mark.asyncio
-async def test_action_bar_hidden_when_empty(mock_config, tmp_path):
-    """Action bar is hidden when table has no rows."""
-    from textual.containers import Horizontal
-
-    # No issued dir = no files, and empty registry
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
-        app = EmissorApp(env="homologacao")
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            action_bar = app.screen.query_one("#action-bar", Horizontal)
-            assert action_bar.display is False
-
-
-@pytest.mark.asyncio
-async def test_action_consultar_opens_query(mock_config, tmp_path):
-    """Clicking Consultar button opens QueryScreen for emitted invoice."""
-    from textual.widgets import Button
-
-    from emissor.tui.screens.query import QueryScreen
-
-    issued = tmp_path / "homologacao" / "issued"
-    issued.mkdir(parents=True)
-    (issued / "NFSe_abc.xml").write_text("<xml/>")
-
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
-        app = EmissorApp(env="homologacao")
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            btn = app.screen.query_one("#btn-consultar", Button)
-            btn.press()
-            await pilot.pause()
-            assert isinstance(app.screen, QueryScreen)
-
-
-@pytest.mark.asyncio
-async def test_action_pdf_opens_download(mock_config, tmp_path):
-    """Clicking Baixar PDF button opens DownloadPdfScreen."""
-    from textual.widgets import Button
-
-    from emissor.tui.screens.download_pdf import DownloadPdfScreen
-
-    issued = tmp_path / "homologacao" / "issued"
-    issued.mkdir(parents=True)
-    (issued / "NFSe_def.xml").write_text("<xml/>")
-
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
-        app = EmissorApp(env="homologacao")
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            btn = app.screen.query_one("#btn-pdf", Button)
-            btn.press()
-            await pilot.pause()
-            assert isinstance(app.screen, DownloadPdfScreen)
-
-
-@pytest.mark.asyncio
-async def test_dry_run_disables_consultar_pdf(mock_config, tmp_path):
-    """Consultar and PDF buttons are disabled for dry_run rows."""
-    from textual.widgets import Button
-
-    issued = tmp_path / "homologacao" / "issued"
-    issued.mkdir(parents=True)
-    (issued / "dry_run_dps_99.xml").write_text("<xml/>")
-
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
-        app = EmissorApp(env="homologacao")
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            btn_consultar = app.screen.query_one("#btn-consultar", Button)
-            btn_pdf = app.screen.query_one("#btn-pdf", Button)
-            assert btn_consultar.disabled is True
-            assert btn_pdf.disabled is True
-
-
-@pytest.mark.asyncio
 async def test_data_migration(tmp_path):
     """migrate_data_layout moves old issued/*.xml to homologacao/issued/."""
     from emissor.config import migrate_data_layout
@@ -397,7 +296,7 @@ async def test_data_migration(tmp_path):
     (old_dir / "NFSe_1.xml").write_text("<xml/>")
     (old_dir / "NFSe_2.xml").write_text("<xml/>")
 
-    with patch("emissor.config.DATA_DIR", tmp_path):
+    with patch("emissor.config.get_data_dir", return_value=tmp_path):
         migrate_data_layout()
 
     new_dir = tmp_path / "homologacao" / "issued"
@@ -417,7 +316,7 @@ async def test_data_migration_skips_if_new_exists(tmp_path):
     new_dir.mkdir(parents=True)
     (new_dir / "NFSe_new.xml").write_text("<new/>")
 
-    with patch("emissor.config.DATA_DIR", tmp_path):
+    with patch("emissor.config.get_data_dir", return_value=tmp_path):
         from emissor.config import migrate_data_layout
 
         migrate_data_layout()
@@ -463,8 +362,8 @@ async def test_registry_invoices_shown(mock_config, tmp_path):
         },
     ]))
 
-    p1, p2 = _patch_data(tmp_path)
-    with p1, p2:
+    (p1,) = _patch_data(tmp_path)
+    with p1:
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.pause()

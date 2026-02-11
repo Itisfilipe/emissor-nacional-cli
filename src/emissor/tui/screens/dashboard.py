@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+import platform
+import shutil
 import subprocess
 from datetime import datetime, timedelta, timezone
 
@@ -20,6 +23,8 @@ from textual.widgets import (
     Select,
     Static,
 )
+
+logger = logging.getLogger(__name__)
 
 BRT = timezone(timedelta(hours=-3))
 
@@ -238,20 +243,16 @@ class DashboardScreen(Screen):
 
     @staticmethod
     def _parse_date(value: str) -> datetime:
-        """Best-effort parse of ISO date/datetime strings."""
+        """Parse ISO date/datetime strings using fromisoformat()."""
         if not value:
             return datetime.now(BRT)
-        # Strip timezone suffix if present (e.g. "-03:00", "Z")
-        clean = value.split("+")[0].split("Z")[0]
-        if clean.count("-") > 2:
-            # Handle "-03:00" style offset at end
-            clean = clean.rsplit("-", 1)[0]
-        for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
-            try:
-                return datetime.strptime(clean, fmt).replace(tzinfo=BRT)
-            except ValueError:
-                continue
-        return datetime.now(BRT)
+        try:
+            dt = datetime.fromisoformat(value)
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=BRT)
+            return dt.astimezone(BRT)
+        except (ValueError, TypeError):
+            return datetime.now(BRT)
 
     # --- Filtering ---
 
@@ -417,16 +418,35 @@ class DashboardScreen(Screen):
         stem = self._selected_stem()
         if not stem:
             return
+        cmd = self._clipboard_cmd()
+        if not cmd:
+            self.notify(f"Chave: {stem}", severity="warning")
+            return
         try:
-            subprocess.run(
-                ["pbcopy"],
-                input=stem.encode(),
-                check=True,
-                timeout=5,
-            )
+            subprocess.run(cmd, input=stem.encode(), check=True, timeout=5)
             self.notify(f"Chave copiada: {stem}")
+        except FileNotFoundError:
+            self.notify(f"Clipboard indisponível. Chave: {stem}", severity="warning")
         except Exception:
             self.notify(f"Chave: {stem}", severity="warning")
+
+    @staticmethod
+    def _clipboard_cmd() -> list[str] | None:
+        """Return the clipboard copy command for the current platform."""
+        system = platform.system()
+        if system == "Darwin":
+            return ["pbcopy"]
+        if system == "Linux":
+            if shutil.which("xclip"):
+                return ["xclip", "-selection", "clipboard"]
+            if shutil.which("xsel"):
+                return ["xsel", "--clipboard", "--input"]
+            if shutil.which("wl-copy"):
+                return ["wl-copy"]
+            return None
+        if system == "Windows":
+            return ["clip"]
+        return None
 
     def action_help(self) -> None:
         from emissor.tui.screens.help import HelpScreen
@@ -440,7 +460,19 @@ class DashboardScreen(Screen):
 
     @work(thread=True)
     def _auto_sync(self) -> None:
-        """Auto-sync on startup — silent on errors, refreshes everything on success."""
+        """Auto-sync on startup — silent on errors."""
+        self._do_sync(silent=True)
+
+    def action_sync(self) -> None:
+        self.notify("Sincronizando notas do servidor…", severity="information", timeout=3)
+        self._run_sync()
+
+    @work(thread=True)
+    def _run_sync(self) -> None:
+        self._do_sync(silent=False)
+
+    def _do_sync(self, *, silent: bool) -> None:
+        """Fetch and register NFS-e from ADN. Shared by auto-sync and manual sync."""
         try:
             from emissor.config import get_cert_password, get_cert_path, load_emitter
             from emissor.services.adn_client import list_dfe, parse_dfe_xml
@@ -475,10 +507,20 @@ class DashboardScreen(Screen):
                     status="emitida" if emitida else "recebida",
                 )
 
-            self.app.call_from_thread(self._on_auto_sync_done, total)
-        except Exception:
-            # Silent on startup — don't bother the user with errors
-            pass
+            if silent:
+                self.app.call_from_thread(self._on_auto_sync_done, total)
+            else:
+                self.app.call_from_thread(self._on_sync_done, total)
+        except KeyError:
+            if silent:
+                logger.debug("Auto-sync failed: certificate not configured")
+            else:
+                self.app.call_from_thread(self._on_sync_error, "Certificado não configurado")
+        except Exception as e:
+            if silent:
+                logger.debug("Auto-sync failed on startup", exc_info=True)
+            else:
+                self.app.call_from_thread(self._on_sync_error, str(e))
 
     def _on_auto_sync_done(self, total: int) -> None:
         if total > 0:
@@ -488,52 +530,6 @@ class DashboardScreen(Screen):
         self._load_sequence()
         self._load_clients()
         self._scan_invoices()
-
-    def action_sync(self) -> None:
-        self.notify("Sincronizando notas do servidor…", severity="information", timeout=3)
-        self._run_sync()
-
-    @work(thread=True)
-    def _run_sync(self) -> None:
-        try:
-            from emissor.config import get_cert_password, get_cert_path, load_emitter
-            from emissor.services.adn_client import list_dfe, parse_dfe_xml
-            from emissor.utils.registry import add_invoice
-
-            env = self.app.env  # type: ignore[attr-defined]
-            pfx_path = get_cert_path()
-            pfx_password = get_cert_password()
-            my_cnpj = load_emitter()["cnpj"]
-
-            data = list_dfe(pfx_path, pfx_password, nsu=0, env=env)
-            docs = data.get("LoteDFe", [])
-            total = 0
-
-            for doc in docs:
-                chave = doc.get("ChaveAcesso", "")
-                if not chave:
-                    continue
-
-                meta = parse_dfe_xml(doc["ArquivoXml"])
-                emitida = meta["emit_cnpj"] == my_cnpj
-                total += 1
-
-                add_invoice(
-                    chave,
-                    n_dps=int(meta["n_nfse"]) if meta["n_nfse"] else None,
-                    client=meta["toma_nome"] if emitida else meta["emit_nome"],
-                    valor_brl=meta["valor"],
-                    competencia=meta["competencia"],
-                    emitted_at=doc.get("DataHoraGeracao"),
-                    env=env,
-                    status="emitida" if emitida else "recebida",
-                )
-
-            self.app.call_from_thread(self._on_sync_done, total)
-        except KeyError:
-            self.app.call_from_thread(self._on_sync_error, "Certificado não configurado")
-        except Exception as e:
-            self.app.call_from_thread(self._on_sync_error, str(e))
 
     def _on_sync_done(self, total: int) -> None:
         self.notify(f"Sincronização concluída: {total} documento(s)", timeout=3)

@@ -32,7 +32,7 @@ class DownloadPdfScreen(ModalScreen):
                 placeholder="Chave de acesso da NFS-e",
                 id="chave-input",
             )
-            yield Label("Caminho de saida", classes="form-label")
+            yield Label("Caminho de saída", classes="form-label")
             default_output = f"{self._initial_chave}.pdf" if self._initial_chave else ""
             yield Input(value=default_output, placeholder="output.pdf", id="output-input")
             with Horizontal(classes="button-bar"):
