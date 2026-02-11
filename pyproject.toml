@@ -1,8 +1,24 @@
 [project]
 name = "emissor-nacional"
 version = "0.1.0"
-description = "CLI para emissão automatizada de NFS-e Nacional"
-requires-python = ">=3.13"
+description = "TUI para emissão de NFS-e via sistema nacional (SEFIN/ADN)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "Filipe Amaral" }]
+keywords = ["nfse", "invoice", "sefin", "adn", "brazil", "tui"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
+]
 dependencies = [
     "lxml>=5.0",
     "signxml>=4.0",
@@ -16,12 +32,17 @@ dependencies = [
     "textual>=1.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/filipeamaral/emissor-nacional-cli"
+Issues = "https://github.com/filipeamaral/emissor-nacional-cli/issues"
+Changelog = "https://github.com/filipeamaral/emissor-nacional-cli/blob/main/CHANGELOG.md"
+
 [project.scripts]
 emissor-nacional = "emissor.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0",
+    "pytest>=8.0",
     "pytest-cov>=6.0",
     "pytest-asyncio>=0.24",
     "pyright>=1.1",
@@ -46,7 +67,7 @@ source = ["emissor"]
 show_missing = true
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py311"
 src = ["src", "tests"]
 line-length = 99
 
@@ -58,7 +79,7 @@ ignore = ["RUF012"]
 known-first-party = ["emissor"]
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.11"
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "basic"

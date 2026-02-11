@@ -10,9 +10,7 @@ dist/
 data/
 config/emitter.yaml
 config/clients/*.yaml
-*.p12
-*.pem
-*.pfx
+!config/clients/*.yaml.example
 .coverage
 htmlcov/
 .DS_Store
