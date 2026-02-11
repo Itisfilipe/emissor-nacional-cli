@@ -36,5 +36,5 @@ class Emitter:
             op_simp_nac=str(d.get("op_simp_nac", "1")),
             reg_esp_trib=str(d.get("reg_esp_trib", "0")),
             serie=str(d.get("serie", "900")),
-            ver_aplic=d.get("ver_aplic", "emissor-py_0.1.0"),
+            ver_aplic=d.get("ver_aplic", "emissor-nacional_0.1.0"),
         )

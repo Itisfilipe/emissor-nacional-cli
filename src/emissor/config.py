@@ -66,3 +66,28 @@ def load_emitter() -> dict:
 
 def load_client(name: str) -> dict:
     return load_yaml(CONFIG_DIR / "clients" / f"{name}.yaml")
+
+
+def list_clients() -> list[str]:
+    """Return sorted list of client names (YAML file stems) from config/clients/."""
+    clients_dir = CONFIG_DIR / "clients"
+    if not clients_dir.exists():
+        return []
+    return sorted(f.stem for f in clients_dir.glob("*.yaml"))
+
+
+def get_issued_dir(env: str) -> Path:
+    """Return the issued-invoices directory for the given environment."""
+    return DATA_DIR / env / "issued"
+
+
+def migrate_data_layout() -> None:
+    """One-time: move data/issued/*.xml → data/homologacao/issued/."""
+    old = DATA_DIR / "issued"
+    new = DATA_DIR / "homologacao" / "issued"
+    if old.exists() and not new.exists():
+        xml_files = list(old.glob("*.xml"))
+        if xml_files:
+            new.mkdir(parents=True, exist_ok=True)
+            for f in xml_files:
+                f.rename(new / f.name)
