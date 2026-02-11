@@ -16,3 +16,4 @@ config/clients/*.yaml
 *.pfx
 .coverage
 htmlcov/
+.DS_Store
