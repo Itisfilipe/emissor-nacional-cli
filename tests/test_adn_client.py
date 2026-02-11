@@ -1,10 +1,29 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import base64
+import gzip
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from emissor.services.adn_client import _check_response, download_danfse, query_nfse
+from emissor.services.adn_client import (
+    _check_response,
+    _fetch_dfe_page,
+    download_danfse,
+    list_dfe,
+    query_nfse,
+)
+
+NFSE_XML = b"""\
+<NFSe xmlns="http://www.sped.fazenda.gov.br/nfse">
+  <infNFSe><nNFSe>1</nNFSe></infNFSe>
+  <emit><CNPJ>11111111000100</CNPJ><xNome>Emitter</xNome></emit>
+  <toma><CNPJ>22222222000200</CNPJ><xNome>Taker</xNome></toma>
+  <infDPS><dCompet>2025-12-30</dCompet></infDPS>
+  <valores><vLiq>1000.00</vLiq></valores>
+</NFSe>
+"""
+NFSE_GZ_B64 = base64.b64encode(gzip.compress(NFSE_XML)).decode()
 
 
 def _mock_response(
@@ -19,32 +38,89 @@ def _mock_response(
     return resp
 
 
+def _make_doc(chave: str, nsu: int) -> dict:
+    return {
+        "ChaveAcesso": chave,
+        "ArquivoXml": NFSE_GZ_B64,
+        "NSU": nsu,
+        "DataHoraGeracao": "2025-12-30T10:00:00",
+        "TipoDocumento": "NFSE",
+    }
+
+
 class TestQueryNfse:
-    @patch("emissor.services.adn_client.get")
-    def test_success(self, mock_get):
-        mock_get.return_value = _mock_response(json_data={"chNFSe": "key123"})
+    @patch("emissor.services.adn_client.iter_dfe")
+    def test_success(self, mock_iter):
+        mock_iter.return_value = iter([_make_doc("key123", 1)])
         result = query_nfse("key123", "/cert.pfx", "pass")
-        assert result == {"chNFSe": "key123"}
+        assert result["chave"] == "key123"
+        assert result["emit_cnpj"] == "11111111000100"
+        assert result["valor"] == "1000.00"
+
+    @patch("emissor.services.adn_client.iter_dfe")
+    def test_not_found(self, mock_iter):
+        mock_iter.return_value = iter([])
+        with pytest.raises(RuntimeError, match="não encontrada"):
+            query_nfse("missing_key", "/cert.pfx", "pass")
+
+    @patch("emissor.services.adn_client.iter_dfe")
+    def test_passes_env(self, mock_iter):
+        mock_iter.return_value = iter([])
+        with pytest.raises(RuntimeError):
+            query_nfse("key", "/cert.pfx", "pass", env="producao")
+        mock_iter.assert_called_once_with("/cert.pfx", "pass", nsu=0, env="producao")
+
+
+class TestListDfe:
+    @patch("emissor.services.adn_client._fetch_dfe_page")
+    def test_single_page(self, mock_fetch):
+        mock_fetch.side_effect = [
+            {"LoteDFe": [_make_doc("a", 1), _make_doc("b", 2)]},
+            {"LoteDFe": []},
+        ]
+        result = list_dfe("/cert.pfx", "pass", nsu=0, env="producao")
+        assert len(result["LoteDFe"]) == 2
+        assert result["StatusProcessamento"] == "DOCUMENTOS_LOCALIZADOS"
+
+    @patch("emissor.services.adn_client._fetch_dfe_page")
+    def test_pagination(self, mock_fetch):
+        mock_fetch.side_effect = [
+            {"LoteDFe": [_make_doc("a", 1), _make_doc("b", 2)]},
+            {"LoteDFe": [_make_doc("c", 3)]},
+            {"LoteDFe": []},
+        ]
+        result = list_dfe("/cert.pfx", "pass", nsu=0, env="producao")
+        assert len(result["LoteDFe"]) == 3
+        assert mock_fetch.call_count == 3
+        # NSU progression: 0, 2 (max of first batch), 3 (max of second)
+        assert mock_fetch.call_args_list == [
+            call("/cert.pfx", "pass", 0, "producao"),
+            call("/cert.pfx", "pass", 2, "producao"),
+            call("/cert.pfx", "pass", 3, "producao"),
+        ]
+
+    @patch("emissor.services.adn_client._fetch_dfe_page")
+    def test_empty(self, mock_fetch):
+        mock_fetch.return_value = {"LoteDFe": []}
+        result = list_dfe("/cert.pfx", "pass")
+        assert result["StatusProcessamento"] == "NENHUM_DOCUMENTO_LOCALIZADO"
+        assert result["LoteDFe"] == []
 
     @patch("emissor.services.adn_client.get")
-    def test_url(self, mock_get):
-        mock_get.return_value = _mock_response()
-        query_nfse("CHAVE123", "/cert.pfx", "pass", env="homologacao")
+    def test_fetch_page_url(self, mock_get):
+        mock_get.return_value = _mock_response(json_data={"LoteDFe": []})
+        _fetch_dfe_page("/cert.pfx", "pass", 5, "homologacao")
         url = mock_get.call_args[0][0]
-        assert url.endswith("/contribuintes/NFSe/CHAVE123")
+        assert "producaorestrita" in url
+        assert url.endswith("/contribuintes/DFe/5")
 
     @patch("emissor.services.adn_client.get")
-    def test_http_error(self, mock_get):
-        mock_get.return_value = _mock_response(ok=False, status_code=404, text="Not Found")
-        with pytest.raises(RuntimeError, match=r"ADN query error.*404"):
-            query_nfse("key", "/cert.pfx", "pass")
-
-    @patch("emissor.services.adn_client.get")
-    def test_producao(self, mock_get):
-        mock_get.return_value = _mock_response()
-        query_nfse("key", "/cert.pfx", "pass", env="producao")
-        url = mock_get.call_args[0][0]
-        assert "adn.nfse.gov.br" in url
+    def test_fetch_page_404_returns_body(self, mock_get):
+        mock_get.return_value = _mock_response(
+            ok=False, status_code=404, json_data={"LoteDFe": []}
+        )
+        result = _fetch_dfe_page("/cert.pfx", "pass", 0, "producao")
+        assert result == {"LoteDFe": []}
 
 
 class TestDownloadDanfse:
@@ -59,7 +135,7 @@ class TestDownloadDanfse:
         mock_get.return_value = _mock_response()
         download_danfse("CHAVE123", "/cert.pfx", "pass")
         url = mock_get.call_args[0][0]
-        assert url.endswith("/contribuintes/NFSe/CHAVE123/PDF")
+        assert url.endswith("/danfse/CHAVE123")
 
     @patch("emissor.services.adn_client.get")
     def test_http_error(self, mock_get):

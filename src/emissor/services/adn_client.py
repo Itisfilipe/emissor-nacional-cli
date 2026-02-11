@@ -24,37 +24,29 @@ def query_nfse(
     pfx_password: str,
     env: str = "homologacao",
 ) -> dict:
-    """Query an issued NFS-e by its access key."""
-    base = ENDPOINTS[env]["adn"]
-    url = f"{base}/contribuintes/NFSe/{chave_acesso}"
+    """Query an NFS-e by its access key via DFe distribution.
 
-    resp = get(
-        url,
-        pkcs12_filename=pfx_path,
-        pkcs12_password=pfx_password,
-        timeout=30,
-    )
-    _check_response(resp, "query")
-    return resp.json()
+    The ADN API has no direct query-by-chave endpoint. We fetch all DFe
+    documents (paginated) and find the one matching the requested chave.
+    """
+    for doc in iter_dfe(pfx_path, pfx_password, nsu=0, env=env):
+        if doc.get("ChaveAcesso") == chave_acesso:
+            meta = parse_dfe_xml(doc["ArquivoXml"])
+            meta["chave"] = chave_acesso
+            meta["nsu"] = doc.get("NSU")
+            meta["data_hora"] = doc.get("DataHoraGeracao")
+            meta["tipo_documento"] = doc.get("TipoDocumento")
+            return meta
+    raise RuntimeError(f"NFS-e não encontrada para chave {chave_acesso[:20]}…")
 
 
-def list_dfe(
+def _fetch_dfe_page(
     pfx_path: str,
     pfx_password: str,
-    nsu: int = 0,
-    env: str = "producao",
+    nsu: int,
+    env: str,
 ) -> dict:
-    """Fetch distributed DF-e documents starting from a given NSU.
-
-    Uses GET /contribuintes/DFe/{NSU} to retrieve invoices (emitted/received)
-    for the CNPJ identified by the certificate. NSU=0 starts from the beginning.
-
-    Returns dict with:
-      - LoteDFe: list of docs, each with NSU, ChaveAcesso, TipoDocumento,
-                 ArquivoXml (gzip+base64), DataHoraGeracao
-      - StatusProcessamento: "DOCUMENTOS_LOCALIZADOS" or "NENHUM_DOCUMENTO_LOCALIZADO"
-    Returns empty LoteDFe on 404 (no documents found) instead of raising.
-    """
+    """Fetch a single page of DFe documents starting from NSU."""
     base = ENDPOINTS[env]["adn"]
     url = f"{base}/contribuintes/DFe/{nsu}"
 
@@ -64,11 +56,48 @@ def list_dfe(
         pkcs12_password=pfx_password,
         timeout=30,
     )
-    # 404 means no documents found — return the body (has empty LoteDFe)
     if resp.status_code == 404:
         return resp.json()
     _check_response(resp, "list_dfe")
     return resp.json()
+
+
+def iter_dfe(
+    pfx_path: str,
+    pfx_password: str,
+    nsu: int = 0,
+    env: str = "producao",
+):
+    """Yield all DFe documents, paginating automatically.
+
+    Each yielded item is a dict with NSU, ChaveAcesso, TipoDocumento,
+    ArquivoXml (gzip+base64), DataHoraGeracao.
+    """
+    while True:
+        data = _fetch_dfe_page(pfx_path, pfx_password, nsu, env)
+        docs = data.get("LoteDFe", [])
+        if not docs:
+            return
+        yield from docs
+        max_nsu = max(d.get("NSU", 0) for d in docs)
+        if max_nsu <= nsu:
+            return
+        nsu = max_nsu
+
+
+def list_dfe(
+    pfx_path: str,
+    pfx_password: str,
+    nsu: int = 0,
+    env: str = "producao",
+) -> dict:
+    """Fetch all distributed DF-e documents starting from a given NSU.
+
+    Paginates automatically. Returns a dict with LoteDFe containing all docs.
+    """
+    all_docs = list(iter_dfe(pfx_path, pfx_password, nsu, env))
+    status = "DOCUMENTOS_LOCALIZADOS" if all_docs else "NENHUM_DOCUMENTO_LOCALIZADO"
+    return {"LoteDFe": all_docs, "StatusProcessamento": status}
 
 
 def parse_dfe_xml(arquivo_xml_b64: str) -> dict[str, Any]:
@@ -98,7 +127,7 @@ def download_danfse(
 ) -> bytes:
     """Download the DANFSE PDF for a given NFS-e access key."""
     base = ENDPOINTS[env]["adn"]
-    url = f"{base}/contribuintes/NFSe/{chave_acesso}/PDF"
+    url = f"{base}/danfse/{chave_acesso}"
 
     resp = get(
         url,
