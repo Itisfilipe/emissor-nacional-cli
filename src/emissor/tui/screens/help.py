@@ -66,7 +66,7 @@ class HelpScreen(ModalScreen):
         log.write("[bold yellow]Aviso[/bold yellow]")
         log.write("")
         log.write(
-            "Este software é fornecido \"como está\", sem garantias de qualquer tipo. "
+            'Este software é fornecido "como está", sem garantias de qualquer tipo. '
             "O usuário é responsável por verificar a conformidade das notas emitidas "
             "com a legislação vigente. Consulte seu contador para orientação fiscal."
         )

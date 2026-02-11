@@ -4,7 +4,7 @@ import logging
 import platform
 import shutil
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from textual import work
 from textual.app import ComposeResult
@@ -24,9 +24,9 @@ from textual.widgets import (
     Static,
 )
 
-logger = logging.getLogger(__name__)
+from emissor.config import BRT
 
-BRT = timezone(timedelta(hours=-3))
+logger = logging.getLogger(__name__)
 
 
 class DashboardScreen(Screen):
@@ -204,9 +204,7 @@ class DashboardScreen(Screen):
         for entry in list_invoices(env):
             chave = entry.get("chave", "")
             seen_keys.add(chave)
-            dt = self._parse_date(
-                entry.get("emitted_at") or entry.get("competencia") or ""
-            )
+            dt = self._parse_date(entry.get("emitted_at") or entry.get("competencia") or "")
             invoices.append(
                 {
                     "stem": chave,
@@ -328,13 +326,15 @@ class DashboardScreen(Screen):
 
         for inv in invoices:
             status = status_styles.get(inv["tipo"], inv["tipo"])
+            stem = inv["stem"]
+            chave_display = stem[:20] + "\u2026" if len(stem) > 20 else stem
             table.add_row(
                 inv["date_str"],
                 status,
                 inv.get("client", ""),
                 inv.get("valor", ""),
-                inv["stem"][:20] + "\u2026" if len(inv["stem"]) > 20 else inv["stem"],
-                key=inv["stem"],
+                chave_display,
+                key=stem,
             )
 
         # Toggle empty state vs table

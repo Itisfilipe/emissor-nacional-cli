@@ -335,32 +335,36 @@ async def test_registry_invoices_shown(mock_config, tmp_path):
     from textual.widgets import DataTable
 
     registry_path = tmp_path / "invoices.json"
-    registry_path.write_text(json.dumps([
-        {
-            "chave": "NFSe_emitida_001",
-            "env": "homologacao",
-            "status": "emitida",
-            "client": "DrChrono",
-            "valor_brl": "53526.58",
-            "competencia": "2025-12-23",
-        },
-        {
-            "chave": "NFSe_recebida_001",
-            "env": "homologacao",
-            "status": "recebida",
-            "client": "MaisContabil",
-            "valor_brl": "350.00",
-            "competencia": "2025-01-09",
-        },
-        {
-            "chave": "NFSe_outro_env",
-            "env": "producao",
-            "status": "emitida",
-            "client": "Other",
-            "valor_brl": "100.00",
-            "competencia": "2025-06-01",
-        },
-    ]))
+    registry_path.write_text(
+        json.dumps(
+            [
+                {
+                    "chave": "NFSe_emitida_001",
+                    "env": "homologacao",
+                    "status": "emitida",
+                    "client": "DrChrono",
+                    "valor_brl": "53526.58",
+                    "competencia": "2025-12-23",
+                },
+                {
+                    "chave": "NFSe_recebida_001",
+                    "env": "homologacao",
+                    "status": "recebida",
+                    "client": "MaisContabil",
+                    "valor_brl": "350.00",
+                    "competencia": "2025-01-09",
+                },
+                {
+                    "chave": "NFSe_outro_env",
+                    "env": "producao",
+                    "status": "emitida",
+                    "client": "Other",
+                    "valor_brl": "100.00",
+                    "competencia": "2025-06-01",
+                },
+            ]
+        )
+    )
 
     (p1,) = _patch_data(tmp_path)
     with p1:

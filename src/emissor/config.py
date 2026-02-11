@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import timedelta, timezone
 from pathlib import Path
 
 import yaml
@@ -38,7 +39,10 @@ def get_data_dir() -> Path:
     """Resolve data directory. Re-evaluated on each call to pick up env changes."""
     return _resolve_dir("EMISSOR_DATA_DIR", "data")
 
+
 NFSE_NS = "http://www.sped.fazenda.gov.br/nfse"
+
+BRT = timezone(timedelta(hours=-3))
 
 ENDPOINTS = {
     "homologacao": {
@@ -55,22 +59,33 @@ TP_AMB = {"homologacao": "2", "producao": "1"}
 
 
 def get_cert_path() -> str:
+    """Return the path to the .pfx certificate from CERT_PFX_PATH env var.
+
+    Raises KeyError if the variable is not set.
+    """
     return os.environ["CERT_PFX_PATH"]
 
 
 def get_cert_password() -> str:
+    """Return the certificate password from CERT_PFX_PASSWORD env var.
+
+    Raises KeyError if the variable is not set.
+    """
     return os.environ["CERT_PFX_PASSWORD"]
 
 
 def load_yaml(path: Path) -> dict:
+    """Load and parse a YAML file, returning the top-level dict."""
     return yaml.safe_load(path.read_text())
 
 
 def load_emitter() -> dict:
+    """Load emitter configuration from config/emitter.yaml."""
     return load_yaml(get_config_dir() / "emitter.yaml")
 
 
 def load_client(name: str) -> dict:
+    """Load a client configuration from config/clients/{name}.yaml."""
     return load_yaml(get_config_dir() / "clients" / f"{name}.yaml")
 
 

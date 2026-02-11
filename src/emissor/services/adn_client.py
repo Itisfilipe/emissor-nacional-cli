@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import base64
 import gzip
+from collections.abc import Iterator
 from typing import Any
 
 from lxml import etree
 from requests_pkcs12 import get
 
-from emissor.config import ENDPOINTS
+from emissor.config import ENDPOINTS, NFSE_NS
 
-NFSE_NS = {"n": "http://www.sped.fazenda.gov.br/nfse"}
+_NFSE_XPATH_NS = {"n": NFSE_NS}
 
 
 def _check_response(resp: Any, action: str) -> None:
@@ -67,7 +68,7 @@ def iter_dfe(
     pfx_password: str,
     nsu: int = 0,
     env: str = "producao",
-):
+) -> Iterator[dict[str, Any]]:
     """Yield all DFe documents, paginating automatically.
 
     Each yielded item is a dict with NSU, ChaveAcesso, TipoDocumento,
@@ -106,7 +107,7 @@ def parse_dfe_xml(arquivo_xml_b64: str) -> dict[str, Any]:
     root = etree.fromstring(xml_bytes)
 
     def txt(xpath: str) -> str:
-        return root.findtext(xpath, default="", namespaces=NFSE_NS).strip()
+        return root.findtext(xpath, default="", namespaces=_NFSE_XPATH_NS).strip()
 
     return {
         "emit_cnpj": txt(".//n:emit/n:CNPJ"),

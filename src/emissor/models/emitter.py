@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Emitter:
+    """Emitter (prestador) — the company issuing the NFS-e."""
+
     cnpj: str
     razao_social: str
     logradouro: str
@@ -22,6 +24,7 @@ class Emitter:
 
     @classmethod
     def from_dict(cls, d: dict) -> Emitter:
+        """Create an Emitter from a YAML-loaded dict, applying defaults for optional fields."""
         return cls(
             cnpj=d["cnpj"],
             razao_social=d["razao_social"],

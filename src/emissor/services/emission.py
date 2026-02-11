@@ -4,11 +4,12 @@ import base64
 import gzip
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from lxml import etree
 
 from emissor.config import (
+    BRT,
     TP_AMB,
     get_cert_password,
     get_cert_path,
@@ -28,8 +29,6 @@ from emissor.utils.registry import add_invoice
 from emissor.utils.sequence import next_n_dps
 
 logger = logging.getLogger(__name__)
-
-BRT = timezone(timedelta(hours=-3))
 
 
 def _now_brt() -> str:

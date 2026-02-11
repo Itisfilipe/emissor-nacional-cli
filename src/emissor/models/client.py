@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Client:
+    """Service taker (tomador) — the international client receiving the NFS-e."""
+
     nif: str
     nome: str
     pais: str
@@ -20,6 +22,7 @@ class Client:
 
     @classmethod
     def from_dict(cls, d: dict) -> Client:
+        """Create a Client from a YAML-loaded dict, applying defaults for optional fields."""
         return cls(
             nif=d["nif"],
             nome=d["nome"],
