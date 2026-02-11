@@ -9,7 +9,7 @@ import emissor.config as config_mod
 class TestResolveDir:
     def test_from_env_var(self, monkeypatch, tmp_path):
         monkeypatch.setenv("EMISSOR_CONFIG_DIR", str(tmp_path))
-        result = config_mod._resolve_dir("EMISSOR_CONFIG_DIR", "config")
+        result = config_mod._resolve_dir("EMISSOR_CONFIG_DIR", "config", kind="config")
         assert result == tmp_path
 
     def test_project_root_fallback(self, monkeypatch, tmp_path):
@@ -22,17 +22,24 @@ class TestResolveDir:
 
         # Patch __file__ so project_root resolves to tmp_path
         monkeypatch.setattr(config_mod, "__file__", str(fake_root / "config.py"))
-        result = config_mod._resolve_dir("EMISSOR_CONFIG_DIR", "config")
+        result = config_mod._resolve_dir("EMISSOR_CONFIG_DIR", "config", kind="config")
         assert result == config_dir
 
-    def test_raises_when_no_dir_found(self, monkeypatch, tmp_path):
+    def test_platformdirs_fallback_config(self, monkeypatch, tmp_path):
         monkeypatch.delenv("EMISSOR_CONFIG_DIR", raising=False)
-        # Point __file__ to a path that doesn't have config subdir
         fake = tmp_path / "nowhere" / "src" / "emissor"
         fake.mkdir(parents=True)
         monkeypatch.setattr(config_mod, "__file__", str(fake / "config.py"))
-        with pytest.raises(RuntimeError, match="EMISSOR_CONFIG_DIR"):
-            config_mod._resolve_dir("EMISSOR_CONFIG_DIR", "config")
+        result = config_mod._resolve_dir("EMISSOR_CONFIG_DIR", "config", kind="config")
+        assert "emissor-nacional" in str(result)
+
+    def test_platformdirs_fallback_data(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("EMISSOR_DATA_DIR", raising=False)
+        fake = tmp_path / "nowhere" / "src" / "emissor"
+        fake.mkdir(parents=True)
+        monkeypatch.setattr(config_mod, "__file__", str(fake / "config.py"))
+        result = config_mod._resolve_dir("EMISSOR_DATA_DIR", "data", kind="data")
+        assert "emissor-nacional" in str(result)
 
 
 class TestCertEnv:

@@ -4,17 +4,17 @@ import os
 from datetime import timedelta, timezone
 from pathlib import Path
 
+import platformdirs
 import yaml
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def _resolve_dir(env_var: str, default_subdir: str) -> Path:
-    """Resolve a directory from an env var or repo layout detection.
+def _resolve_dir(env_var: str, default_subdir: str, kind: str) -> Path:
+    """Resolve a directory from env var, repo layout, or platform default.
 
-    Raises RuntimeError when neither source is available so we never
-    silently bind to the current working directory.
+    Priority: 1) env var, 2) dev repo layout, 3) platformdirs user directory.
     """
     from_env = os.environ.get(env_var)
     if from_env:
@@ -24,20 +24,20 @@ def _resolve_dir(env_var: str, default_subdir: str) -> Path:
     candidate = project_root / default_subdir
     if candidate.is_dir():
         return candidate
-    raise RuntimeError(
-        f"Could not find '{default_subdir}/' directory. "
-        f"Set the {env_var} environment variable to the correct path."
-    )
+    # Installed via pip — use platform-standard directories
+    if kind == "config":
+        return Path(platformdirs.user_config_dir("emissor-nacional"))
+    return Path(platformdirs.user_data_dir("emissor-nacional"))
 
 
 def get_config_dir() -> Path:
     """Resolve config directory. Re-evaluated on each call to pick up env changes."""
-    return _resolve_dir("EMISSOR_CONFIG_DIR", "config")
+    return _resolve_dir("EMISSOR_CONFIG_DIR", "config", kind="config")
 
 
 def get_data_dir() -> Path:
     """Resolve data directory. Re-evaluated on each call to pick up env changes."""
-    return _resolve_dir("EMISSOR_DATA_DIR", "data")
+    return _resolve_dir("EMISSOR_DATA_DIR", "data", kind="data")
 
 
 NFSE_NS = "http://www.sped.fazenda.gov.br/nfse"
