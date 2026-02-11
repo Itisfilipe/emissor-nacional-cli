@@ -1,0 +1,563 @@
+from __future__ import annotations
+
+import subprocess
+from datetime import datetime, timedelta, timezone
+
+from textual import work
+from textual.app import ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
+from textual.events import Key
+from textual.screen import Screen
+from textual.widgets import (
+    Button,
+    DataTable,
+    Footer,
+    Label,
+    MaskedInput,
+    RadioButton,
+    RadioSet,
+    Select,
+    Static,
+)
+
+BRT = timezone(timedelta(hours=-3))
+
+
+class DashboardScreen(Screen):
+    """Main dashboard screen shown on startup."""
+
+    BINDINGS = [
+        Binding("n", "new_invoice", "Nova NFS-e"),
+        Binding("c", "query", "Consultar"),
+        Binding("p", "download_pdf", "Baixar PDF"),
+        Binding("y", "copy_key", "Copiar chave"),
+        Binding("s", "sync", "Sincronizar"),
+        Binding("v", "validate", "Validar"),
+        Binding("e", "toggle_env", "Ambiente"),
+        Binding("f", "focus_filter", "Filtrar"),
+        Binding("h", "help", "Ajuda"),
+        Binding("q", "quit", "Sair"),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._all_invoices: list[dict] = []
+
+    def compose(self) -> ComposeResult:
+        env = self.app.env  # type: ignore[attr-defined]
+
+        # Top bar: title + clickable env badge
+        with Horizontal(id="top-bar"):
+            yield Static("Emissor Nacional CLI", id="app-title")
+            env_class = "env-homol" if env == "homologacao" else "env-prod"
+            env_label = "\u21c4 HOMOLOGAÇÃO" if env == "homologacao" else "\u21c4 PRODUÇÃO"
+            yield Button(env_label, id="env-badge", classes=env_class)
+
+        # Info cards row
+        with Horizontal(id="info-bar"):
+            with Vertical(id="card-emitter", classes="info-card"):
+                yield Label("Emitente", classes="card-title")
+                yield Label("…", id="emitter-info", classes="card-value")
+            with Vertical(id="card-cert", classes="info-card"):
+                yield Label("Certificado", classes="card-title")
+                yield Label("…", id="cert-info", classes="card-value")
+            with Vertical(id="card-seq", classes="info-card"):
+                yield Label("Sequência", classes="card-title")
+                yield Label("…", id="seq-info", classes="card-value")
+            with Vertical(id="card-clients", classes="info-card"):
+                yield Label("Clientes", classes="card-title")
+                yield Label("…", id="clients-info", classes="card-value")
+
+        # Filter bar
+        with Horizontal(id="filter-bar"):
+            yield Static("Notas Fiscais", id="section-title")
+            yield Select(
+                [("Todas", "todas"), ("Emitidas", "emitida"), ("Recebidas", "recebida")],
+                value="todas",
+                allow_blank=False,
+                id="filter-tipo",
+            )
+            with RadioSet(id="filter-preset"):
+                yield RadioButton("Todos", value=True, id="filter-todos")
+                yield RadioButton("Hoje", id="filter-hoje")
+                yield RadioButton("Semana", id="filter-semana")
+                yield RadioButton("Mês", id="filter-mes")
+            yield Static("De:", id="label-de")
+            yield MaskedInput(template="00/00/0000", id="filter-de")
+            yield Static("Até:", id="label-ate")
+            yield MaskedInput(template="00/00/0000", id="filter-ate")
+            yield Button("\u25b7 Filtrar", id="btn-filtrar")
+
+        # DataTable
+        yield DataTable(id="recent-table", cursor_type="row")
+
+        # Empty state (shown when no invoices)
+        yield Static(
+            "Nenhuma nota fiscal encontrada.\n"
+            "Pressione [bold]s[/bold] para sincronizar do servidor "
+            "ou [bold]n[/bold] para emitir uma nova NFS-e.",
+            id="empty-state",
+        )
+
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self._load_emitter()
+        self._load_certificate()
+        self._load_sequence()
+        self._load_clients()
+        self._scan_invoices()
+        self.query_one("#recent-table", DataTable).focus()
+        self._auto_sync()
+
+    def on_key(self, event: Key) -> None:
+        table = self.query_one("#recent-table", DataTable)
+        match event.key:
+            case "j":
+                table.action_cursor_down()
+            case "k":
+                table.action_cursor_up()
+            case "enter":
+                self._open_selected()
+            case _:
+                return
+        event.prevent_default()
+        event.stop()
+
+    # --- Data loading (threaded) ---
+
+    @work(thread=True)
+    def _load_emitter(self) -> None:
+        try:
+            from emissor.config import load_emitter
+
+            emitter = load_emitter()
+            text = f"{emitter['razao_social']}\nCNPJ: {emitter['cnpj']}"
+        except Exception as e:
+            text = f"Erro: {e}"
+        self.app.call_from_thread(self._update_label, "emitter-info", text)
+
+    @work(thread=True)
+    def _load_certificate(self) -> None:
+        try:
+            from emissor.config import get_cert_password, get_cert_path
+            from emissor.utils.certificate import validate_certificate
+
+            info = validate_certificate(get_cert_path(), get_cert_password())
+            status = "[green]válido[/green]" if info["valid"] else "[red]EXPIRADO[/red]"
+            # Format date cleanly — strip time/tz if it's a full datetime string
+            not_after = str(info["not_after"])
+            if "T" in not_after or " " in not_after:
+                try:
+                    dt = datetime.fromisoformat(not_after)
+                    not_after = dt.strftime("%Y-%m-%d")
+                except (ValueError, TypeError):
+                    not_after = not_after.split("T")[0].split(" ")[0]
+            text = f"{status}\nAté {not_after}"
+        except KeyError:
+            text = "não configurado"
+        except Exception as e:
+            text = f"erro - {e}"
+        self.app.call_from_thread(self._update_label, "cert-info", text)
+
+    @work(thread=True)
+    def _load_sequence(self) -> None:
+        try:
+            from emissor.utils.sequence import peek_next_n_dps
+
+            n = peek_next_n_dps()
+            text = f"Próximo: {n}"
+        except Exception as e:
+            text = f"erro - {e}"
+        self.app.call_from_thread(self._update_label, "seq-info", text)
+
+    @work(thread=True)
+    def _load_clients(self) -> None:
+        try:
+            from emissor.config import list_clients
+
+            clients = list_clients()
+            text = ", ".join(clients) if clients else "nenhum"
+        except Exception as e:
+            text = f"erro - {e}"
+        self.app.call_from_thread(self._update_label, "clients-info", text)
+
+    @work(thread=True)
+    def _scan_invoices(self) -> None:
+        self.app.call_from_thread(self._do_scan_invoices)
+
+    def _do_scan_invoices(self) -> None:
+        from emissor.config import get_issued_dir
+        from emissor.utils.registry import list_invoices
+
+        env = self.app.env  # type: ignore[attr-defined]
+        invoices: list[dict] = []
+        seen_keys: set[str] = set()
+
+        # 1) Registry invoices (emitida + recebida from sync)
+        for entry in list_invoices(env):
+            chave = entry.get("chave", "")
+            seen_keys.add(chave)
+            dt = self._parse_date(
+                entry.get("emitted_at") or entry.get("competencia") or ""
+            )
+            invoices.append(
+                {
+                    "stem": chave,
+                    "datetime": dt,
+                    "date_str": dt.strftime("%Y-%m-%d"),
+                    "tipo": entry.get("status", "emitida"),
+                    "client": entry.get("client", ""),
+                    "valor": entry.get("valor_brl", ""),
+                }
+            )
+
+        # 2) Local XML files not yet in registry (dry runs, etc.)
+        issued_dir = get_issued_dir(env)
+        if issued_dir.exists():
+            for f in issued_dir.glob("*.xml"):
+                if f.stem in seen_keys:
+                    continue
+                mtime = f.stat().st_mtime
+                dt = datetime.fromtimestamp(mtime, tz=BRT)
+                invoices.append(
+                    {
+                        "stem": f.stem,
+                        "datetime": dt,
+                        "date_str": dt.strftime("%Y-%m-%d %H:%M"),
+                        "tipo": "rascunho" if f.stem.startswith("dry_run") else "emitida",
+                        "client": "",
+                        "valor": "",
+                    }
+                )
+
+        invoices.sort(key=lambda x: x["datetime"], reverse=True)
+        self._all_invoices = invoices
+        self._apply_filter()
+
+    @staticmethod
+    def _parse_date(value: str) -> datetime:
+        """Best-effort parse of ISO date/datetime strings."""
+        if not value:
+            return datetime.now(BRT)
+        # Strip timezone suffix if present (e.g. "-03:00", "Z")
+        clean = value.split("+")[0].split("Z")[0]
+        if clean.count("-") > 2:
+            # Handle "-03:00" style offset at end
+            clean = clean.rsplit("-", 1)[0]
+        for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(clean, fmt).replace(tzinfo=BRT)
+            except ValueError:
+                continue
+        return datetime.now(BRT)
+
+    # --- Filtering ---
+
+    def _apply_filter(self) -> None:
+        filtered = self._all_invoices
+
+        # Filter by type
+        tipo = self.query_one("#filter-tipo", Select).value
+        if tipo == "emitida":
+            filtered = [i for i in filtered if i["tipo"] == "emitida"]
+        elif tipo == "recebida":
+            filtered = [i for i in filtered if i["tipo"] == "recebida"]
+
+        # Check custom date inputs first
+        de_input = self.query_one("#filter-de", MaskedInput)
+        ate_input = self.query_one("#filter-ate", MaskedInput)
+        de_val = de_input.value.strip()
+        ate_val = ate_input.value.strip()
+
+        if de_val or ate_val:
+            filtered = self._filter_by_dates(filtered, de_val, ate_val)
+        else:
+            # Use preset
+            idx = self.query_one("#filter-preset", RadioSet).pressed_index
+            if idx == 1:  # Hoje
+                today = datetime.now(tz=BRT).date()
+                filtered = [i for i in filtered if i["datetime"].date() == today]
+            elif idx == 2:  # Semana
+                week_ago = datetime.now(tz=BRT) - timedelta(days=7)
+                filtered = [i for i in filtered if i["datetime"] >= week_ago]
+            elif idx == 3:  # Mes
+                month_ago = datetime.now(tz=BRT) - timedelta(days=30)
+                filtered = [i for i in filtered if i["datetime"] >= month_ago]
+
+        self._populate_table(filtered)
+        count = len(filtered)
+        if count == 0:
+            self.notify(
+                "Nenhuma nota fiscal encontrada para o filtro selecionado",
+                severity="warning",
+                timeout=3,
+            )
+        else:
+            self.notify(f"{count} nota(s) fiscal(is) encontrada(s)", timeout=2)
+
+    def _filter_by_dates(self, invoices: list[dict], de_val: str, ate_val: str) -> list[dict]:
+        result = invoices
+        try:
+            if de_val:
+                de_date = datetime.strptime(de_val, "%d/%m/%Y").replace(tzinfo=BRT)
+                result = [i for i in result if i["datetime"] >= de_date]
+        except ValueError:
+            pass
+        try:
+            if ate_val:
+                ate_dt = datetime.strptime(ate_val, "%d/%m/%Y").replace(tzinfo=BRT)
+                ate_end = ate_dt + timedelta(days=1)
+                result = [i for i in result if i["datetime"] < ate_end]
+        except ValueError:
+            pass
+        return result
+
+    def _populate_table(self, invoices: list[dict]) -> None:
+        table = self.query_one("#recent-table", DataTable)
+        table.clear(columns=True)
+        table.add_columns("Data", "Tipo", "Cliente/Emitente", "Valor", "Chave")
+
+        status_styles = {
+            "emitida": "[green]emitida[/green]",
+            "recebida": "[blue]recebida[/blue]",
+            "rascunho": "[yellow]rascunho[/yellow]",
+        }
+
+        for inv in invoices:
+            status = status_styles.get(inv["tipo"], inv["tipo"])
+            table.add_row(
+                inv["date_str"],
+                status,
+                inv.get("client", ""),
+                inv.get("valor", ""),
+                inv["stem"][:20] + "\u2026" if len(inv["stem"]) > 20 else inv["stem"],
+                key=inv["stem"],
+            )
+
+        # Toggle empty state vs table
+        has_rows = table.row_count > 0
+        table.display = has_rows
+        self.query_one("#empty-state", Static).display = not has_rows
+
+    # --- Event handlers ---
+
+    def on_select_changed(self) -> None:
+        self._apply_filter()
+
+    def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
+        if event.radio_set.id == "filter-preset":
+            self.query_one("#filter-de", MaskedInput).clear()
+            self.query_one("#filter-ate", MaskedInput).clear()
+        self._apply_filter()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        match event.button.id:
+            case "env-badge":
+                self.action_toggle_env()
+            case "btn-filtrar":
+                self._apply_filter()
+
+    def _selected_stem(self) -> str | None:
+        """Return the stem of the currently selected row, or None if empty."""
+        table = self.query_one("#recent-table", DataTable)
+        if table.row_count == 0:
+            return None
+        row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
+        return str(row_key.value)
+
+    # --- Open selected row ---
+
+    def _open_selected(self) -> None:
+        stem = self._selected_stem()
+        if not stem:
+            return
+        if stem.startswith("dry_run"):
+            self.notify(
+                "Rascunho (dry_run) — não pode ser consultado na SEFIN",
+                severity="warning",
+            )
+            return
+        from emissor.tui.screens.query import QueryScreen
+
+        self.app.push_screen(QueryScreen(chave=stem))
+
+    # --- Helpers ---
+
+    def _update_label(self, label_id: str, text: str) -> None:
+        try:
+            label = self.query_one(f"#{label_id}", Label)
+            label.update(text)
+        except Exception:
+            pass
+
+    # --- Actions ---
+
+    def action_new_invoice(self) -> None:
+        from emissor.tui.screens.new_invoice import NewInvoiceScreen
+
+        self.app.push_screen(NewInvoiceScreen())
+
+    def action_query(self) -> None:
+        stem = self._selected_stem()
+        chave = stem if stem and not stem.startswith("dry_run") else ""
+        from emissor.tui.screens.query import QueryScreen
+
+        self.app.push_screen(QueryScreen(chave=chave))
+
+    def action_download_pdf(self) -> None:
+        stem = self._selected_stem()
+        chave = stem if stem and not stem.startswith("dry_run") else ""
+        from emissor.tui.screens.download_pdf import DownloadPdfScreen
+
+        self.app.push_screen(DownloadPdfScreen(chave=chave))
+
+    def action_copy_key(self) -> None:
+        stem = self._selected_stem()
+        if not stem:
+            return
+        try:
+            subprocess.run(
+                ["pbcopy"],
+                input=stem.encode(),
+                check=True,
+                timeout=5,
+            )
+            self.notify(f"Chave copiada: {stem}")
+        except Exception:
+            self.notify(f"Chave: {stem}", severity="warning")
+
+    def action_help(self) -> None:
+        from emissor.tui.screens.help import HelpScreen
+
+        self.app.push_screen(HelpScreen())
+
+    def action_validate(self) -> None:
+        from emissor.tui.screens.validate import ValidateScreen
+
+        self.app.push_screen(ValidateScreen())
+
+    @work(thread=True)
+    def _auto_sync(self) -> None:
+        """Auto-sync on startup — silent on errors, refreshes everything on success."""
+        try:
+            from emissor.config import get_cert_password, get_cert_path, load_emitter
+            from emissor.services.adn_client import list_dfe, parse_dfe_xml
+            from emissor.utils.registry import add_invoice
+
+            env = self.app.env  # type: ignore[attr-defined]
+            pfx_path = get_cert_path()
+            pfx_password = get_cert_password()
+            my_cnpj = load_emitter()["cnpj"]
+
+            data = list_dfe(pfx_path, pfx_password, nsu=0, env=env)
+            docs = data.get("LoteDFe", [])
+            total = 0
+
+            for doc in docs:
+                chave = doc.get("ChaveAcesso", "")
+                if not chave:
+                    continue
+
+                meta = parse_dfe_xml(doc["ArquivoXml"])
+                emitida = meta["emit_cnpj"] == my_cnpj
+                total += 1
+
+                add_invoice(
+                    chave,
+                    n_dps=int(meta["n_nfse"]) if meta["n_nfse"] else None,
+                    client=meta["toma_nome"] if emitida else meta["emit_nome"],
+                    valor_brl=meta["valor"],
+                    competencia=meta["competencia"],
+                    emitted_at=doc.get("DataHoraGeracao"),
+                    env=env,
+                    status="emitida" if emitida else "recebida",
+                )
+
+            self.app.call_from_thread(self._on_auto_sync_done, total)
+        except Exception:
+            # Silent on startup — don't bother the user with errors
+            pass
+
+    def _on_auto_sync_done(self, total: int) -> None:
+        if total > 0:
+            self.notify(f"Sincronizado: {total} documento(s)", timeout=3)
+        self._load_emitter()
+        self._load_certificate()
+        self._load_sequence()
+        self._load_clients()
+        self._scan_invoices()
+
+    def action_sync(self) -> None:
+        self.notify("Sincronizando notas do servidor…", severity="information", timeout=3)
+        self._run_sync()
+
+    @work(thread=True)
+    def _run_sync(self) -> None:
+        try:
+            from emissor.config import get_cert_password, get_cert_path, load_emitter
+            from emissor.services.adn_client import list_dfe, parse_dfe_xml
+            from emissor.utils.registry import add_invoice
+
+            env = self.app.env  # type: ignore[attr-defined]
+            pfx_path = get_cert_path()
+            pfx_password = get_cert_password()
+            my_cnpj = load_emitter()["cnpj"]
+
+            data = list_dfe(pfx_path, pfx_password, nsu=0, env=env)
+            docs = data.get("LoteDFe", [])
+            total = 0
+
+            for doc in docs:
+                chave = doc.get("ChaveAcesso", "")
+                if not chave:
+                    continue
+
+                meta = parse_dfe_xml(doc["ArquivoXml"])
+                emitida = meta["emit_cnpj"] == my_cnpj
+                total += 1
+
+                add_invoice(
+                    chave,
+                    n_dps=int(meta["n_nfse"]) if meta["n_nfse"] else None,
+                    client=meta["toma_nome"] if emitida else meta["emit_nome"],
+                    valor_brl=meta["valor"],
+                    competencia=meta["competencia"],
+                    emitted_at=doc.get("DataHoraGeracao"),
+                    env=env,
+                    status="emitida" if emitida else "recebida",
+                )
+
+            self.app.call_from_thread(self._on_sync_done, total)
+        except KeyError:
+            self.app.call_from_thread(self._on_sync_error, "Certificado não configurado")
+        except Exception as e:
+            self.app.call_from_thread(self._on_sync_error, str(e))
+
+    def _on_sync_done(self, total: int) -> None:
+        self.notify(f"Sincronização concluída: {total} documento(s)", timeout=3)
+        self._scan_invoices()
+
+    def _on_sync_error(self, msg: str) -> None:
+        self.notify(f"Erro na sincronização: {msg}", severity="error", timeout=5)
+
+    def action_toggle_env(self) -> None:
+        new_env = "producao" if self.app.env == "homologacao" else "homologacao"  # type: ignore[attr-defined]
+        self.app.env = new_env  # type: ignore[attr-defined]
+        self._update_env_badge()
+        self._scan_invoices()
+
+    def _update_env_badge(self) -> None:
+        badge = self.query_one("#env-badge", Button)
+        env = self.app.env  # type: ignore[attr-defined]
+        is_homol = env == "homologacao"
+        badge.label = "\u21c4 HOMOLOGAÇÃO" if is_homol else "\u21c4 PRODUÇÃO"
+        badge.set_class(is_homol, "env-homol")
+        badge.set_class(not is_homol, "env-prod")
+
+    def action_focus_filter(self) -> None:
+        self.query_one("#filter-de", MaskedInput).focus()
+
+    def action_quit(self) -> None:
+        self.app.exit()

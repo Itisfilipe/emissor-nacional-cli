@@ -1,0 +1,291 @@
+/* ── Global ── */
+
+Screen {
+    background: $surface;
+}
+
+/* Global button hover */
+Button:hover {
+    background: $boost;
+}
+
+Button.-primary:hover {
+    background: $primary-lighten-1;
+}
+
+Button.-warning:hover {
+    background: $warning-lighten-1;
+}
+
+/* ── Dashboard ── */
+
+DashboardScreen {
+    layout: vertical;
+    padding: 0 1;
+}
+
+/* Top bar */
+DashboardScreen #top-bar {
+    height: 1;
+    layout: horizontal;
+    background: $primary;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+DashboardScreen #app-title {
+    width: 1fr;
+    color: $text;
+    text-style: bold;
+}
+
+DashboardScreen #env-badge {
+    min-width: 0;
+    height: 1;
+    border: none;
+    padding: 0 2;
+    text-style: bold;
+}
+
+
+DashboardScreen #env-badge.env-homol {
+    background: $warning;
+    color: $text;
+}
+
+DashboardScreen #env-badge.env-prod {
+    background: $error;
+    color: $text;
+}
+
+/* Input focus states */
+DashboardScreen #filter-de:focus,
+DashboardScreen #filter-ate:focus {
+    background: $panel;
+}
+
+/* Info cards — uniform height, multi-line */
+DashboardScreen #info-bar {
+    height: 3;
+    layout: horizontal;
+    padding: 0;
+    margin: 0 0 1 0;
+}
+
+DashboardScreen .info-card {
+    width: 1fr;
+    height: 3;
+    margin: 0 1 0 0;
+    padding: 0 1;
+    background: $panel;
+}
+
+DashboardScreen .info-card:last-of-type {
+    margin-right: 0;
+}
+
+DashboardScreen .card-title {
+    color: $text-muted;
+    text-style: bold;
+    height: 1;
+}
+
+DashboardScreen .card-value {
+    height: auto;
+}
+
+/* Filter bar */
+DashboardScreen #filter-bar {
+    height: 1;
+    layout: horizontal;
+    padding: 0;
+    margin: 0;
+    align-vertical: middle;
+}
+
+DashboardScreen #section-title {
+    width: auto;
+    height: 1;
+    padding: 0 2 0 0;
+    color: $text;
+    text-style: bold;
+}
+
+DashboardScreen #filter-tipo {
+    width: 16;
+    height: 1;
+    margin: 0 1 0 0;
+}
+
+DashboardScreen #filter-preset {
+    width: auto;
+    height: 1;
+    layout: horizontal;
+    border: none;
+    margin: 0 1 0 0;
+}
+
+DashboardScreen #filter-preset RadioButton {
+    width: auto;
+    height: 1;
+    padding: 0 1;
+    border: none;
+}
+
+DashboardScreen #filter-tipo SelectCurrent,
+DashboardScreen #filter-preset SelectCurrent {
+    height: 1;
+    border: none;
+    padding: 0 1;
+    background: $boost;
+}
+
+DashboardScreen #label-de,
+DashboardScreen #label-ate {
+    width: auto;
+    height: 1;
+    padding: 0 1;
+    color: $text-muted;
+}
+
+DashboardScreen #filter-de,
+DashboardScreen #filter-ate {
+    width: 14;
+    height: 1;
+    margin: 0;
+    border: none;
+    background: $boost;
+    padding: 0 1;
+}
+
+DashboardScreen #btn-filtrar {
+    margin-left: 1;
+    min-width: 0;
+    height: 1;
+    border: none;
+    padding: 0 2;
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+
+DashboardScreen #btn-filtrar:hover {
+    background: $primary-lighten-1;
+}
+
+DashboardScreen #env-badge.env-homol:hover {
+    background: $warning-lighten-1;
+}
+
+DashboardScreen #env-badge.env-prod:hover {
+    background: $error-lighten-1;
+}
+
+/* DataTable */
+DashboardScreen #recent-table {
+    height: 1fr;
+    margin-top: 1;
+}
+
+/* Empty state */
+DashboardScreen #empty-state {
+    height: 1fr;
+    content-align: center middle;
+    color: $text-muted;
+    text-style: italic;
+    margin-top: 1;
+    display: none;
+}
+
+
+/* ── Modal screens (shared) ── */
+
+ModalScreen {
+    align: center middle;
+    background: $surface 80%;
+}
+
+#modal-dialog {
+    width: 80%;
+    height: 80%;
+    background: $surface;
+    border: thick $primary;
+    padding: 1 2;
+}
+
+#modal-dialog #modal-title-bar {
+    height: 1;
+    layout: horizontal;
+    margin-bottom: 1;
+}
+
+#modal-dialog #header-bar {
+    width: 1fr;
+    height: 1;
+    text-style: bold;
+    color: $primary;
+}
+
+#modal-dialog #btn-modal-close {
+    min-width: 0;
+    height: 1;
+    border: none;
+    padding: 0 1;
+    background: transparent;
+    color: $text-muted;
+}
+
+#modal-dialog #btn-modal-close:hover {
+    color: $error;
+    background: transparent;
+}
+
+#modal-dialog .form-label {
+    height: 1;
+    margin-bottom: 0;
+    color: $text-muted;
+}
+
+#modal-dialog .button-bar {
+    height: 3;
+    margin-top: 1;
+    layout: horizontal;
+    align-horizontal: right;
+}
+
+#modal-dialog .button-bar Button {
+    margin-left: 1;
+}
+
+#modal-dialog #error-label {
+    height: 1;
+    margin-top: 1;
+    color: $error;
+}
+
+#modal-dialog #status-label {
+    height: 1;
+    margin-top: 1;
+    color: $success;
+}
+
+#modal-dialog #query-result,
+#modal-dialog #validation-output,
+#modal-dialog #help-content {
+    height: 1fr;
+    margin-top: 1;
+}
+
+/* New Invoice specifics */
+#modal-dialog #form-container {
+    height: auto;
+    max-height: 80%;
+}
+
+#modal-dialog #preview-container {
+    height: auto;
+}
+
+#modal-dialog #result-container {
+    height: auto;
+}

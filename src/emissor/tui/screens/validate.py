@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from textual import work
+from textual.app import ComposeResult
+from textual.binding import Binding
+from textual.containers import Horizontal, Vertical
+from textual.screen import ModalScreen
+from textual.widgets import Button, RichLog, Static
+
+
+class ValidateScreen(ModalScreen):
+    """Certificate and config validation display."""
+
+    BINDINGS = [
+        Binding("escape", "go_back", "Voltar"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="modal-dialog"):
+            with Horizontal(id="modal-title-bar"):
+                yield Static("Validar Configuracao", id="header-bar")
+                yield Button("\u2715", id="btn-modal-close")
+            yield RichLog(id="validation-output", wrap=True, markup=True)
+            with Horizontal(classes="button-bar"):
+                yield Button("\u2715 Fechar", id="btn-voltar")
+
+    def on_mount(self) -> None:
+        self.notify("Validando configuração…", severity="information", timeout=2)
+        self._run_validation()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id in ("btn-voltar", "btn-modal-close"):
+            self.app.pop_screen()
+
+    @work(thread=True)
+    def _run_validation(self) -> None:
+        lines: list[str] = []
+
+        # Emitter
+        try:
+            from emissor.config import load_emitter
+
+            emitter = load_emitter()
+            lines.append(f"[green]OK[/green] Emitente: {emitter['razao_social']}")
+            lines.append(f"   CNPJ: {emitter['cnpj']}")
+        except Exception as e:
+            lines.append(f"[red]ERRO[/red] Emitente: {e}")
+
+        # Certificate
+        try:
+            from emissor.config import get_cert_password, get_cert_path
+            from emissor.utils.certificate import validate_certificate
+
+            info = validate_certificate(get_cert_path(), get_cert_password())
+            status = "[green]valido[/green]" if info["valid"] else "[red]expirado[/red]"
+            lines.append(f"[green]OK[/green] Certificado: {status}")
+            lines.append(f"   Sujeito: {info['subject']}")
+            lines.append(f"   Emissor: {info['issuer']}")
+            lines.append(f"   Valido de: {info['not_before']}")
+            lines.append(f"   Valido ate: {info['not_after']}")
+        except KeyError:
+            lines.append("[red]ERRO[/red] CERT_PFX_PATH ou CERT_PFX_PASSWORD nao definidos")
+        except Exception as e:
+            lines.append(f"[red]ERRO[/red] Certificado: {e}")
+
+        # Clients
+        try:
+            from emissor.config import list_clients
+
+            clients = list_clients()
+            if clients:
+                for c in clients:
+                    lines.append(f"[green]OK[/green] Cliente: {c}")
+            else:
+                lines.append("[yellow]AVISO[/yellow] Nenhum cliente configurado")
+        except Exception as e:
+            lines.append(f"[red]ERRO[/red] Clientes: {e}")
+
+        self.app.call_from_thread(self._display_lines, lines)
+
+    def _display_lines(self, lines: list[str]) -> None:
+        log = self.query_one("#validation-output", RichLog)
+        for line in lines:
+            log.write(line)
+        has_errors = any("[red]" in line for line in lines)
+        if has_errors:
+            self.notify("Validação concluída com erros", severity="warning", timeout=3)
+        else:
+            self.notify("Validação concluída — tudo OK", timeout=3)
+
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
