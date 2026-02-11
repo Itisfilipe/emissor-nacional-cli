@@ -30,6 +30,9 @@ TUI para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) via o sistema n
 pip install emissor-nacional
 # ou
 pipx install emissor-nacional
+
+# Cria os arquivos de configuração de exemplo
+emissor-nacional init
 ```
 
 ### Via fonte (desenvolvimento)
@@ -98,9 +101,9 @@ mec_af_comex_p: "02"      # mecanismo de afastamento do COMEX (prestador)
 mec_af_comex_t: "02"      # mecanismo de afastamento do COMEX (tomador)
 ```
 
-### 4. Diretórios (instalação via pip)
+### 4. Diretórios (opcional)
 
-Se instalar fora do repositório, defina onde ficam os arquivos de configuração e dados:
+Quando instalado via pip, os diretórios padrão do sistema são usados automaticamente (via `platformdirs`). Para sobrescrever:
 
 ```env
 EMISSOR_CONFIG_DIR=/caminho/para/config
