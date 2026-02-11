@@ -41,38 +41,23 @@ EMISSOR_DATA_DIR=/caminho/para/data
 ## Uso
 
 ```bash
-# Validar certificado e configuração
-uv run emissor-nacional validate
-
-# Emitir NFS-e
-uv run emissor-nacional nova seu-cliente \
-    --valor-brl 19684.93 \
-    --valor-usd 3640.00 \
-    --competencia 2025-12-30
-
-# Emitir com intermediário
-uv run emissor-nacional nova seu-cliente \
-    --valor-brl 53526.58 \
-    --valor-usd 10221.04 \
-    --competencia 2025-12-23 \
-    --intermediario intermediary
-
-# Dry run (gera XML sem enviar)
-uv run emissor-nacional nova seu-cliente \
-    --valor-brl 19684.93 \
-    --valor-usd 3640.00 \
-    --competencia 2025-12-30 \
-    --dry-run
-
-# Consultar NFS-e pela chave de acesso
-uv run emissor-nacional query <chave-de-acesso>
-
-# Baixar DANFSE em PDF
-uv run emissor-nacional pdf <chave-de-acesso> -o nota.pdf
-
-# Usar ambiente de produção (padrão: homologação)
-uv run emissor-nacional --env producao emit ...
+# Iniciar a TUI interativa (padrão: ambiente de homologação)
+uv run emissor-nacional
 ```
+
+A TUI oferece as seguintes funcionalidades via atalhos de teclado:
+
+| Tecla | Ação |
+|-------|------|
+| `n` | Nova NFS-e |
+| `c` | Consultar NFS-e |
+| `p` | Baixar PDF (DANFSE) |
+| `y` | Copiar chave de acesso |
+| `s` | Sincronizar com servidor |
+| `v` | Validar certificado e configuração |
+| `e` | Alternar ambiente (homologação/produção) |
+| `h` | Ajuda |
+| `q` | Sair |
 
 ## Desenvolvimento
 
