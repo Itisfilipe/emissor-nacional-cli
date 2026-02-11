@@ -9,11 +9,14 @@ class TestValidateMonetary:
     def test_valid(self):
         assert validate_monetary("19684.93") == "19684.93"
 
-    def test_normalizes_trailing_zeros(self):
-        assert validate_monetary("100.00") == "100"
+    def test_preserves_two_decimal_places(self):
+        assert validate_monetary("100.00") == "100.00"
 
-    def test_preserves_significant_decimals(self):
-        assert validate_monetary("1000.10") == "1000.1"
+    def test_pads_to_two_decimals(self):
+        assert validate_monetary("1000.1") == "1000.10"
+
+    def test_integer_gets_decimals(self):
+        assert validate_monetary("500") == "500.00"
 
     def test_nan_raises(self):
         with pytest.raises(ValueError, match="invalido"):

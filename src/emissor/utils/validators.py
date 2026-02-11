@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation
 def validate_monetary(value: str) -> str:
     """Validate and normalize a monetary value string.
 
-    Returns the normalized decimal string (no trailing zeros).
+    Returns the value with at least 2 decimal places (SEFIN XML requirement).
     Raises ValueError for invalid or non-positive values.
     """
     try:
@@ -18,7 +18,7 @@ def validate_monetary(value: str) -> str:
             raise ValueError(f"Valor deve ser positivo: '{value}'")
     except InvalidOperation:
         raise ValueError(f"Valor numerico invalido: '{value}'") from None
-    return format(d.normalize(), "f")
+    return f"{d:.2f}"
 
 
 def validate_date(value: str) -> str:
