@@ -1,37 +1,106 @@
-# Emissor Nacional - CLI para emissão de NFS-e via sistema nacional da Receita Federal do Brasil
+# emissor-nacional
 
-CLI para emissão automatizada de NFS-e (Nota Fiscal de Serviço Eletrônica) via o sistema nacional da Receita Federal do Brasil. Voltado para prestadores de serviço que emitem notas para clientes no exterior (exportação de serviços).
+[![PyPI](https://img.shields.io/pypi/v/emissor-nacional)](https://pypi.org/project/emissor-nacional/)
+[![Python](https://img.shields.io/pypi/pyversions/emissor-nacional)](https://pypi.org/project/emissor-nacional/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+TUI para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) via o sistema nacional da Receita Federal do Brasil (SEFIN/ADN). Voltado para prestadores de serviço que emitem notas para clientes no exterior (exportação de serviços).
+
+## Funcionalidades
+
+- Emissão de NFS-e com assinatura digital ICP-Brasil A1
+- Consulta de NFS-e emitidas e recebidas via ADN (DFe)
+- Download de DANFSE (PDF) por chave de acesso
+- Sincronização automática com o servidor ADN
+- Validação de certificado digital e configuração
+- Suporte a ambientes de homologação e produção
+- Interface TUI interativa com navegação por teclado
 
 ## Pré-requisitos
 
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/)
-- Certificado digital ICP-Brasil tipo A1 (arquivo `.pfx` ou `.p12`)
-- Cadastro no portal nacional de NFS-e
+- Python 3.11+
+- Certificado digital ICP-Brasil tipo A1 (`.pfx` ou `.p12`)
+- Cadastro no [portal nacional de NFS-e](https://www.nfse.gov.br/)
 
 ## Instalação
 
+### Via pip / pipx
+
 ```bash
+pip install emissor-nacional
+# ou
+pipx install emissor-nacional
+```
+
+### Via fonte (desenvolvimento)
+
+```bash
+git clone https://github.com/filipeamaral/emissor-nacional-cli.git
+cd emissor-nacional-cli
 uv sync
 ```
 
 ## Configuração
 
-1. Copie os arquivos de exemplo e preencha com seus dados reais:
+### 1. Certificado digital
 
-```bash
-cp config/emitter.yaml.example config/emitter.yaml
-cp config/clients/acme-corp.yaml.example config/clients/seu-cliente.yaml
-```
-
-2. Crie um arquivo `.env` na raiz do projeto:
+Crie um arquivo `.env` na raiz do projeto (ou defina as variáveis de ambiente):
 
 ```env
 CERT_PFX_PATH=/caminho/para/certificado.pfx
 CERT_PFX_PASSWORD=sua-senha
 ```
 
-Se instalar o pacote fora do repositório (ex: via `pip install emissor-nacional`), defina também:
+### 2. Dados do emitente
+
+```bash
+cp config/emitter.yaml.example config/emitter.yaml
+```
+
+Edite `config/emitter.yaml` com os dados reais do prestador:
+
+```yaml
+cnpj: "12345678000199"
+razao_social: "SUA EMPRESA LTDA"
+logradouro: "RUA EXEMPLO"
+numero: "100"
+bairro: "CENTRO"
+cod_municipio: "4205407"  # código IBGE
+uf: "SC"
+cep: "88000000"
+fone: "48999999999"
+email: "contato@suaempresa.com.br"
+op_simp_nac: "1"      # 1 = optante Simples Nacional
+reg_esp_trib: "0"     # regime especial de tributação
+serie: "900"           # série da NFS-e
+ver_aplic: "emissor-nacional_0.1.0"
+```
+
+### 3. Clientes
+
+```bash
+cp config/clients/acme-corp.yaml.example config/clients/meu-cliente.yaml
+```
+
+Edite com os dados do tomador de serviço:
+
+```yaml
+nif: "123456789"           # Tax ID do cliente
+nome: "Acme Corp"
+pais: "US"
+logradouro: "100 Main St"
+numero: "100"
+bairro: "n/a"
+cidade: "New York"
+estado: "NY"
+cep: "10001"
+mec_af_comex_p: "02"      # mecanismo de afastamento do COMEX (prestador)
+mec_af_comex_t: "02"      # mecanismo de afastamento do COMEX (tomador)
+```
+
+### 4. Diretórios (instalação via pip)
+
+Se instalar fora do repositório, defina onde ficam os arquivos de configuração e dados:
 
 ```env
 EMISSOR_CONFIG_DIR=/caminho/para/config
@@ -41,38 +110,36 @@ EMISSOR_DATA_DIR=/caminho/para/data
 ## Uso
 
 ```bash
-# Iniciar a TUI interativa (padrão: ambiente de homologação)
-uv run emissor-nacional
+emissor-nacional
 ```
 
-A TUI oferece as seguintes funcionalidades via atalhos de teclado:
+### Atalhos de teclado
 
-| Tecla | Ação |
-|-------|------|
-| `n` | Nova NFS-e |
-| `c` | Consultar NFS-e |
-| `p` | Baixar PDF (DANFSE) |
-| `y` | Copiar chave de acesso |
-| `s` | Sincronizar com servidor |
-| `v` | Validar certificado e configuração |
-| `e` | Alternar ambiente (homologação/produção) |
-| `h` | Ajuda |
-| `q` | Sair |
+| Tecla   | Ação                                        |
+| ------- | ------------------------------------------- |
+| `n`     | Nova NFS-e                                  |
+| `c`     | Consultar NFS-e                             |
+| `p`     | Baixar PDF (DANFSE)                         |
+| `y`     | Copiar chave de acesso                      |
+| `s`     | Sincronizar com servidor                    |
+| `v`     | Validar certificado e configuração          |
+| `e`     | Alternar ambiente (homologação / produção)  |
+| `j`/`k` | Navegar tabela (vim-style)                  |
+| `f`     | Filtrar por data                            |
+| `h`     | Ajuda                                       |
+| `q`     | Sair                                        |
+
+### Ambiente padrão
+
+O ambiente padrão é **homologação** (testes). Para emitir notas reais, alterne para produção com `e`.
 
 ## Desenvolvimento
 
 ```bash
-# Lint
-uv run ruff check src/ tests/
-
-# Formatar
-uv run ruff format src/ tests/
-
-# Type check
-uv run pyright src/
-
-# Testes
-uv run pytest tests/ -v
+uv run pytest tests/ -v --cov     # testes + cobertura
+uv run ruff check src/ tests/     # lint
+uv run ruff format src/ tests/    # formatar
+uv run pyright src/               # type check
 ```
 
 ## Licença

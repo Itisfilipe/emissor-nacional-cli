@@ -16,7 +16,7 @@ uv run pyright src/             # Type check
 ```
 config/                    # YAML config (emitter + clients), gitignored; .example files committed
 src/emissor/
-  config.py                # Loads YAML config, .env, endpoints
+  config.py                # Loads YAML config, .env, endpoints, BRT timezone, constants
   cli.py                   # Entry point — launches Textual TUI
   models/                  # Dataclasses: Emitter, Client, Intermediary, Invoice
   services/
