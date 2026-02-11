@@ -28,13 +28,12 @@ def _patch_emission(monkeypatch, tmp_path, emitter_dict, client_dict):
         patch.object(emission_mod, "sign_dps", side_effect=lambda dps, *a: dps),
         patch.object(emission_mod, "emit_nfse", return_value={"chNFSe": "NFSe123"}) as mock_emit,
         patch.object(emission_mod, "next_n_dps", return_value=42) as mock_next,
-        patch.object(emission_mod, "peek_next_n_dps", return_value=42) as mock_peek,
         patch.object(emission_mod, "_now_brt", return_value="2025-12-30T15:00:00-03:00"),
+        patch.object(emission_mod, "add_invoice", return_value={}),
     ):
         yield {
             "mock_emit_nfse": mock_emit,
             "mock_next": mock_next,
-            "mock_peek": mock_peek,
             "tmp_path": tmp_path,
         }
 
@@ -48,10 +47,10 @@ class TestPrepare:
         assert prepared.env == "homologacao"
         assert prepared.signed_xml is not None
 
-    def test_uses_peek_not_next(self, _patch_emission):
+    def test_reserves_sequence_on_prepare(self, _patch_emission):
+        """prepare() atomically reserves the sequence number via next_n_dps()."""
         emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
-        _patch_emission["mock_peek"].assert_called_once()
-        _patch_emission["mock_next"].assert_not_called()
+        _patch_emission["mock_next"].assert_called_once()
 
     def test_with_intermediary(
         self, monkeypatch, tmp_path, emitter_dict, client_dict, intermediary_dict
@@ -73,7 +72,7 @@ class TestPrepare:
             patch.object(emission_mod, "get_cert_password", return_value="fakepass"),
             patch.object(emission_mod, "load_pfx", return_value=(b"key", b"cert", [])),
             patch.object(emission_mod, "sign_dps", side_effect=lambda dps, *a: dps),
-            patch.object(emission_mod, "peek_next_n_dps", return_value=1),
+            patch.object(emission_mod, "next_n_dps", return_value=1),
             patch.object(emission_mod, "_now_brt", return_value="2025-12-30T15:00:00-03:00"),
         ):
             prepared = emission_mod.prepare(
@@ -91,10 +90,12 @@ class TestSubmit:
         assert result["response"] == {"chNFSe": "NFSe123"}
         assert result["n_dps"] == 42
 
-    def test_increments_sequence(self, _patch_emission):
+    def test_submit_does_not_increment_sequence(self, _patch_emission):
+        """submit() must not call next_n_dps() — sequence was reserved in prepare()."""
         prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        _patch_emission["mock_next"].reset_mock()
         emission_mod.submit(prepared)
-        _patch_emission["mock_next"].assert_called_once()
+        _patch_emission["mock_next"].assert_not_called()
 
     def test_saves_nfse_xml(self, _patch_emission):
         nfse_xml = base64.b64encode(gzip.compress(b"<nfse>test</nfse>")).decode()
@@ -108,31 +109,6 @@ class TestSubmit:
         assert saved.exists()
         assert saved.read_bytes() == b"<nfse>test</nfse>"
 
-    def test_n_dps_matches_prepared_not_counter(self, tmp_path, emitter_dict, client_dict):
-        """Returned n_dps must match prepared.n_dps (XML content), not next_n_dps()."""
-        with (
-            patch.object(
-                emission_mod, "get_issued_dir", side_effect=lambda env: tmp_path / env / "issued"
-            ),
-            patch.object(emission_mod, "load_emitter", return_value=emitter_dict),
-            patch.object(emission_mod, "load_client", return_value=client_dict),
-            patch.object(emission_mod, "get_cert_path", return_value="/fake.pfx"),
-            patch.object(emission_mod, "get_cert_password", return_value="fakepass"),
-            patch.object(emission_mod, "load_pfx", return_value=(b"key", b"cert", [])),
-            patch.object(emission_mod, "sign_dps", side_effect=lambda dps, *a: dps),
-            patch.object(emission_mod, "emit_nfse", return_value={"chNFSe": "NFSe_X"}),
-            # peek returns 10, but next returns 11 (simulating concurrent access)
-            patch.object(emission_mod, "peek_next_n_dps", return_value=10),
-            patch.object(emission_mod, "next_n_dps", return_value=11),
-            patch.object(emission_mod, "_now_brt", return_value="2025-12-30T15:00:00-03:00"),
-        ):
-            prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
-            assert prepared.n_dps == 10
-
-            result = emission_mod.submit(prepared)
-            # Must match prepared.n_dps (what's in the XML), not next_n_dps() return
-            assert result["n_dps"] == 10
-
 
 class TestSaveXml:
     def test_saves_to_disk(self, _patch_emission):
@@ -141,28 +117,9 @@ class TestSaveXml:
         assert Path(path).exists()
         assert "dry_run_dps_42" in path
 
-    def test_increments_sequence(self, _patch_emission):
+    def test_save_xml_does_not_increment_sequence(self, _patch_emission):
+        """save_xml() must not call next_n_dps() — sequence was reserved in prepare()."""
         prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        _patch_emission["mock_next"].reset_mock()
         emission_mod.save_xml(prepared)
-        _patch_emission["mock_next"].assert_called_once()
-
-    def test_filename_matches_prepared_n_dps(self, tmp_path, emitter_dict, client_dict):
-        """Filename uses prepared.n_dps, not the counter return value."""
-        with (
-            patch.object(
-                emission_mod, "get_issued_dir", side_effect=lambda env: tmp_path / env / "issued"
-            ),
-            patch.object(emission_mod, "load_emitter", return_value=emitter_dict),
-            patch.object(emission_mod, "load_client", return_value=client_dict),
-            patch.object(emission_mod, "get_cert_path", return_value="/fake.pfx"),
-            patch.object(emission_mod, "get_cert_password", return_value="fakepass"),
-            patch.object(emission_mod, "load_pfx", return_value=(b"key", b"cert", [])),
-            patch.object(emission_mod, "sign_dps", side_effect=lambda dps, *a: dps),
-            patch.object(emission_mod, "peek_next_n_dps", return_value=10),
-            patch.object(emission_mod, "next_n_dps", return_value=11),
-            patch.object(emission_mod, "_now_brt", return_value="2025-12-30T15:00:00-03:00"),
-        ):
-            prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
-            path = emission_mod.save_xml(prepared)
-            # Filename must use prepared.n_dps (10), not next_n_dps return (11)
-            assert "dry_run_dps_10" in path
+        _patch_emission["mock_next"].assert_not_called()

@@ -25,7 +25,7 @@ from emissor.services.xml_encoder import encode_dps
 from emissor.services.xml_signer import sign_dps
 from emissor.utils.certificate import load_pfx
 from emissor.utils.registry import add_invoice
-from emissor.utils.sequence import next_n_dps, peek_next_n_dps
+from emissor.utils.sequence import next_n_dps
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def prepare(
     env: str = "homologacao",
     intermediario: str | None = None,
 ) -> PreparedDPS:
-    """Build and sign DPS without sending or incrementing the sequence."""
+    """Build, sign, and atomically reserve the sequence number for DPS."""
     emitter = Emitter.from_dict(load_emitter())
     client = Client.from_dict(load_client(client_name))
 
@@ -68,7 +68,7 @@ def prepare(
     if intermediario:
         intermediary = Intermediary.from_dict(load_client(intermediario))
 
-    n_dps = peek_next_n_dps()
+    n_dps = next_n_dps()
     tp_amb = TP_AMB[env]
 
     invoice = Invoice(
@@ -103,13 +103,10 @@ def prepare(
 
 
 def submit(prepared: PreparedDPS) -> dict:
-    """Encode and send prepared DPS to SEFIN. Increments sequence.
+    """Encode and send prepared DPS to SEFIN.
 
-    Uses prepared.n_dps (already embedded in the signed XML) for consistency.
-    Calls next_n_dps() only to advance the counter so it isn't reused.
+    Sequence was already reserved by prepare(), so no increment here.
     """
-    next_n_dps()  # advance counter; value matches prepared.n_dps
-
     encoded = encode_dps(prepared.signed_dps)
     response = emit_nfse(encoded, prepared.pfx_path, prepared.pfx_password, prepared.env)
 
@@ -151,11 +148,10 @@ def submit(prepared: PreparedDPS) -> dict:
 
 
 def save_xml(prepared: PreparedDPS) -> str:
-    """Save prepared DPS XML to disk without submitting. Increments sequence.
+    """Save prepared DPS XML to disk without submitting.
 
-    Uses prepared.n_dps for the filename to match the embedded XML content.
+    Sequence was already reserved by prepare(), so no increment here.
     """
-    next_n_dps()  # advance counter; value matches prepared.n_dps
     out_path = get_issued_dir(prepared.env) / f"dry_run_dps_{prepared.n_dps}.xml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(prepared.signed_xml)
