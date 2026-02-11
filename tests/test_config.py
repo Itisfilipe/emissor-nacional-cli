@@ -68,14 +68,14 @@ class TestLoadYaml:
 
 class TestLoadEmitterClient:
     def test_load_emitter(self, monkeypatch, config_dir, emitter_dict):
-        monkeypatch.setattr(config_mod, "CONFIG_DIR", config_dir)
+        monkeypatch.setattr(config_mod, "get_config_dir", lambda: config_dir)
         result = config_mod.load_emitter()
         assert result["cnpj"] == emitter_dict["cnpj"]
 
     def test_load_emitter_missing(self, monkeypatch, tmp_path):
         empty = tmp_path / "empty"
         empty.mkdir()
-        monkeypatch.setattr(config_mod, "CONFIG_DIR", empty)
+        monkeypatch.setattr(config_mod, "get_config_dir", lambda: empty)
         with pytest.raises(FileNotFoundError):
             config_mod.load_emitter()
 
@@ -83,6 +83,6 @@ class TestLoadEmitterClient:
         cfg = tmp_path / "config"
         cfg.mkdir()
         (cfg / "clients").mkdir()
-        monkeypatch.setattr(config_mod, "CONFIG_DIR", cfg)
+        monkeypatch.setattr(config_mod, "get_config_dir", lambda: cfg)
         with pytest.raises(FileNotFoundError):
             config_mod.load_client("nonexistent")

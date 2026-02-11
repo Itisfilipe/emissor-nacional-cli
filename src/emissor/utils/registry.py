@@ -7,30 +7,52 @@ file to remember every invoice emitted through the CLI (or manually imported).
 from __future__ import annotations
 
 import json
+import os
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
-from emissor.config import DATA_DIR
+from filelock import FileLock
 
-REGISTRY_PATH = DATA_DIR / "invoices.json"
+from emissor import config as _config
+
+
+def _registry_path() -> Path:
+    return _config.get_data_dir() / "invoices.json"
+
+
+@contextmanager
+def _locked():
+    """Hold an exclusive file lock during registry read-modify-write."""
+    rp = _registry_path()
+    rp.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(rp.with_suffix(".lock"))
+    with lock:
+        yield
 
 
 def _load() -> list[dict[str, Any]]:
-    if not REGISTRY_PATH.exists():
+    rp = _registry_path()
+    if not rp.exists():
         return []
     try:
-        return json.loads(REGISTRY_PATH.read_text())
+        return json.loads(rp.read_text())
     except (json.JSONDecodeError, ValueError):
         return []
 
 
 def _save(entries: list[dict[str, Any]]) -> None:
-    REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REGISTRY_PATH.write_text(json.dumps(entries, indent=2, ensure_ascii=False) + "\n")
+    rp = _registry_path()
+    rp.parent.mkdir(parents=True, exist_ok=True)
+    tmp = rp.with_suffix(".tmp")
+    tmp.write_text(json.dumps(entries, indent=2, ensure_ascii=False) + "\n")
+    os.replace(tmp, rp)
 
 
 def list_invoices(env: str | None = None) -> list[dict[str, Any]]:
     """Return all registered invoices, optionally filtered by env."""
-    entries = _load()
+    with _locked():
+        entries = _load()
     if env:
         entries = [e for e in entries if e.get("env") == env]
     return entries
@@ -48,38 +70,40 @@ def add_invoice(
     status: str = "emitida",
 ) -> dict[str, Any]:
     """Add an invoice to the registry. Skips if chave already exists."""
-    entries = _load()
+    with _locked():
+        entries = _load()
 
-    existing = next((e for e in entries if e.get("chave") == chave), None)
-    if existing:
-        return existing
+        existing = next((e for e in entries if e.get("chave") == chave), None)
+        if existing:
+            return existing
 
-    entry: dict[str, Any] = {
-        "chave": chave,
-        "env": env,
-        "status": status,
-    }
-    if n_dps is not None:
-        entry["n_dps"] = n_dps
-    if client:
-        entry["client"] = client
-    if valor_brl:
-        entry["valor_brl"] = valor_brl
-    if competencia:
-        entry["competencia"] = competencia
-    if emitted_at:
-        entry["emitted_at"] = emitted_at
+        entry: dict[str, Any] = {
+            "chave": chave,
+            "env": env,
+            "status": status,
+        }
+        if n_dps is not None:
+            entry["n_dps"] = n_dps
+        if client:
+            entry["client"] = client
+        if valor_brl:
+            entry["valor_brl"] = valor_brl
+        if competencia:
+            entry["competencia"] = competencia
+        if emitted_at:
+            entry["emitted_at"] = emitted_at
 
-    entries.append(entry)
-    _save(entries)
-    return entry
+        entries.append(entry)
+        _save(entries)
+        return entry
 
 
 def remove_invoice(chave: str) -> bool:
     """Remove an invoice from the registry by chave."""
-    entries = _load()
-    filtered = [e for e in entries if e.get("chave") != chave]
-    if len(filtered) == len(entries):
-        return False
-    _save(filtered)
-    return True
+    with _locked():
+        entries = _load()
+        filtered = [e for e in entries if e.get("chave") != chave]
+        if len(filtered) == len(entries):
+            return False
+        _save(filtered)
+        return True

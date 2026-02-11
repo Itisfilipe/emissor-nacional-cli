@@ -3,35 +3,40 @@ from __future__ import annotations
 import json
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
 from filelock import FileLock
 
-from emissor.config import DATA_DIR
+from emissor import config as _config
 
-SEQUENCE_FILE = DATA_DIR / "sequence.json"
+
+def _sequence_file() -> Path:
+    return _config.get_data_dir() / "sequence.json"
 
 
 @contextmanager
 def _locked():
     """Hold an exclusive file lock during sequence read-modify-write."""
-    SEQUENCE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = SEQUENCE_FILE.with_suffix(".lock")
-    lock = FileLock(lock_path)
+    sf = _sequence_file()
+    sf.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(sf.with_suffix(".lock"))
     with lock:
         yield
 
 
 def _load() -> dict:
-    if SEQUENCE_FILE.exists():
-        return json.loads(SEQUENCE_FILE.read_text())
+    sf = _sequence_file()
+    if sf.exists():
+        return json.loads(sf.read_text())
     return {"n_dps": 0}
 
 
 def _save(data: dict) -> None:
-    SEQUENCE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    tmp = SEQUENCE_FILE.with_suffix(".tmp")
+    sf = _sequence_file()
+    sf.parent.mkdir(parents=True, exist_ok=True)
+    tmp = sf.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2))
-    os.replace(tmp, SEQUENCE_FILE)
+    os.replace(tmp, sf)
 
 
 def current_n_dps() -> int:

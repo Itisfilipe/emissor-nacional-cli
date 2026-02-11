@@ -29,8 +29,14 @@ def _resolve_dir(env_var: str, default_subdir: str) -> Path:
     )
 
 
-CONFIG_DIR = _resolve_dir("EMISSOR_CONFIG_DIR", "config")
-DATA_DIR = _resolve_dir("EMISSOR_DATA_DIR", "data")
+def get_config_dir() -> Path:
+    """Resolve config directory. Re-evaluated on each call to pick up env changes."""
+    return _resolve_dir("EMISSOR_CONFIG_DIR", "config")
+
+
+def get_data_dir() -> Path:
+    """Resolve data directory. Re-evaluated on each call to pick up env changes."""
+    return _resolve_dir("EMISSOR_DATA_DIR", "data")
 
 NFSE_NS = "http://www.sped.fazenda.gov.br/nfse"
 
@@ -61,16 +67,16 @@ def load_yaml(path: Path) -> dict:
 
 
 def load_emitter() -> dict:
-    return load_yaml(CONFIG_DIR / "emitter.yaml")
+    return load_yaml(get_config_dir() / "emitter.yaml")
 
 
 def load_client(name: str) -> dict:
-    return load_yaml(CONFIG_DIR / "clients" / f"{name}.yaml")
+    return load_yaml(get_config_dir() / "clients" / f"{name}.yaml")
 
 
 def list_clients() -> list[str]:
     """Return sorted list of client names (YAML file stems) from config/clients/."""
-    clients_dir = CONFIG_DIR / "clients"
+    clients_dir = get_config_dir() / "clients"
     if not clients_dir.exists():
         return []
     return sorted(f.stem for f in clients_dir.glob("*.yaml"))
@@ -78,13 +84,13 @@ def list_clients() -> list[str]:
 
 def get_issued_dir(env: str) -> Path:
     """Return the issued-invoices directory for the given environment."""
-    return DATA_DIR / env / "issued"
+    return get_data_dir() / env / "issued"
 
 
 def migrate_data_layout() -> None:
     """One-time: move data/issued/*.xml → data/homologacao/issued/."""
-    old = DATA_DIR / "issued"
-    new = DATA_DIR / "homologacao" / "issued"
+    old = get_data_dir() / "issued"
+    new = get_data_dir() / "homologacao" / "issued"
     if old.exists() and not new.exists():
         xml_files = list(old.glob("*.xml"))
         if xml_files:
