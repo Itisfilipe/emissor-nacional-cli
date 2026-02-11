@@ -46,11 +46,37 @@ def _init_config() -> None:
         print("Nenhum arquivo novo criado (todos já existiam).")
 
 
+def _preflight() -> bool:
+    """Verify minimal config before launching the TUI.
+
+    Auto-creates the data directory. Returns False with a helpful
+    message when the config directory or emitter.yaml is missing.
+    """
+    from emissor.config import get_config_dir, get_data_dir
+
+    data_dir = get_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    config_dir = get_config_dir()
+    if not config_dir.is_dir():
+        print(f"Erro: diretório de configuração não encontrado: {config_dir}")
+        print("Execute 'emissor-nacional init' para criar os arquivos de exemplo.")
+        return False
+    if not (config_dir / "emitter.yaml").is_file():
+        print(f"Erro: emitter.yaml não encontrado em {config_dir}")
+        print("Execute 'emissor-nacional init' e configure o emitente.")
+        return False
+    return True
+
+
 def main() -> None:
     """Entry point for the Emissor Nacional CLI/TUI."""
     if len(sys.argv) > 1 and sys.argv[1] == "init":
         _init_config()
         return
+
+    if not _preflight():
+        sys.exit(1)
 
     from emissor.tui.app import EmissorApp
 
