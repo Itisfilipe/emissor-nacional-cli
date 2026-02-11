@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import platform
 import shutil
 import subprocess
@@ -25,8 +24,6 @@ from textual.widgets import (
 )
 
 from emissor.config import BRT
-
-logger = logging.getLogger(__name__)
 
 
 class DashboardScreen(Screen):
@@ -237,7 +234,7 @@ class DashboardScreen(Screen):
 
         invoices.sort(key=lambda x: x["datetime"], reverse=True)
         self._all_invoices = invoices
-        self._apply_filter()
+        self._apply_filter(show_toast=False)
 
     @staticmethod
     def _parse_date(value: str) -> datetime:
@@ -254,7 +251,7 @@ class DashboardScreen(Screen):
 
     # --- Filtering ---
 
-    def _apply_filter(self) -> None:
+    def _apply_filter(self, *, show_toast: bool = True) -> None:
         filtered = self._all_invoices
 
         # Filter by type
@@ -286,15 +283,16 @@ class DashboardScreen(Screen):
                 filtered = [i for i in filtered if i["datetime"] >= month_ago]
 
         self._populate_table(filtered)
-        count = len(filtered)
-        if count == 0:
-            self.notify(
-                "Nenhuma nota fiscal encontrada para o filtro selecionado",
-                severity="warning",
-                timeout=3,
-            )
-        else:
-            self.notify(f"{count} nota(s) fiscal(is) encontrada(s)", timeout=2)
+        if show_toast:
+            count = len(filtered)
+            if count == 0:
+                self.notify(
+                    "Nenhuma nota fiscal encontrada para o filtro selecionado",
+                    severity="warning",
+                    timeout=3,
+                )
+            else:
+                self.notify(f"{count} nota(s) fiscal(is) encontrada(s)", timeout=2)
 
     def _filter_by_dates(self, invoices: list[dict], de_val: str, ate_val: str) -> list[dict]:
         result = invoices
@@ -460,8 +458,11 @@ class DashboardScreen(Screen):
 
     @work(thread=True)
     def _auto_sync(self) -> None:
-        """Auto-sync on startup — silent on errors."""
-        self._do_sync(silent=True)
+        """Auto-sync on startup — shows progress/result notifications."""
+        self.app.call_from_thread(
+            self.notify, "Sincronizando notas do servidor…", severity="information", timeout=3
+        )
+        self._do_sync()
 
     def action_sync(self) -> None:
         self.notify("Sincronizando notas do servidor…", severity="information", timeout=3)
@@ -469,9 +470,9 @@ class DashboardScreen(Screen):
 
     @work(thread=True)
     def _run_sync(self) -> None:
-        self._do_sync(silent=False)
+        self._do_sync()
 
-    def _do_sync(self, *, silent: bool) -> None:
+    def _do_sync(self) -> None:
         """Fetch and register NFS-e from ADN. Shared by auto-sync and manual sync."""
         try:
             from emissor.config import get_cert_password, get_cert_path, load_emitter
@@ -507,29 +508,11 @@ class DashboardScreen(Screen):
                     status="emitida" if emitida else "recebida",
                 )
 
-            if silent:
-                self.app.call_from_thread(self._on_auto_sync_done, total)
-            else:
-                self.app.call_from_thread(self._on_sync_done, total)
+            self.app.call_from_thread(self._on_sync_done, total)
         except KeyError:
-            if silent:
-                logger.debug("Auto-sync failed: certificate not configured")
-            else:
-                self.app.call_from_thread(self._on_sync_error, "Certificado não configurado")
+            self.app.call_from_thread(self._on_sync_error, "Certificado não configurado")
         except Exception as e:
-            if silent:
-                logger.debug("Auto-sync failed on startup", exc_info=True)
-            else:
-                self.app.call_from_thread(self._on_sync_error, str(e))
-
-    def _on_auto_sync_done(self, total: int) -> None:
-        if total > 0:
-            self.notify(f"Sincronizado: {total} documento(s)", timeout=3)
-        self._load_emitter()
-        self._load_certificate()
-        self._load_sequence()
-        self._load_clients()
-        self._scan_invoices()
+            self.app.call_from_thread(self._on_sync_error, str(e))
 
     def _on_sync_done(self, total: int) -> None:
         self.notify(f"Sincronização concluída: {total} documento(s)", timeout=3)
