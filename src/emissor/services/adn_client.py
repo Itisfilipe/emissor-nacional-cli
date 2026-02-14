@@ -24,13 +24,16 @@ def query_nfse(
     pfx_path: str,
     pfx_password: str,
     env: str = "homologacao",
+    start_nsu: int = 0,
 ) -> dict:
     """Query an NFS-e by its access key via DFe distribution.
 
-    The ADN API has no direct query-by-chave endpoint. We fetch all DFe
-    documents (paginated) and find the one matching the requested chave.
+    The ADN API has no direct query-by-chave endpoint. We fetch DFe
+    documents (paginated) starting from *start_nsu* and find the one
+    matching the requested chave.  Callers should pass the invoice's
+    known NSU (from the local registry) to avoid scanning from zero.
     """
-    for doc in iter_dfe(pfx_path, pfx_password, nsu=0, env=env):
+    for doc in iter_dfe(pfx_path, pfx_password, nsu=start_nsu, env=env):
         if doc.get("ChaveAcesso") == chave_acesso:
             meta = parse_dfe_xml(doc["ArquivoXml"])
             meta["chave"] = chave_acesso
@@ -67,7 +70,7 @@ def iter_dfe(
     pfx_path: str,
     pfx_password: str,
     nsu: int = 0,
-    env: str = "producao",
+    env: str = "homologacao",
 ) -> Iterator[dict[str, Any]]:
     """Yield all DFe documents, paginating automatically.
 
@@ -90,7 +93,7 @@ def list_dfe(
     pfx_path: str,
     pfx_password: str,
     nsu: int = 0,
-    env: str = "producao",
+    env: str = "homologacao",
 ) -> dict:
     """Fetch all distributed DF-e documents starting from a given NSU.
 
@@ -118,6 +121,18 @@ def parse_dfe_xml(arquivo_xml_b64: str) -> dict[str, Any]:
         "competencia": txt(".//n:infDPS/n:dCompet"),
         "valor": txt(".//n:valores/n:vLiq"),
     }
+
+
+def check_connectivity(
+    pfx_path: str,
+    pfx_password: str,
+    env: str = "homologacao",
+) -> None:
+    """Test ADN API connectivity by fetching DFe page at NSU 0.
+
+    Raises RuntimeError on failure.
+    """
+    _fetch_dfe_page(pfx_path, pfx_password, 0, env)
 
 
 def download_danfse(
