@@ -4,7 +4,14 @@
 [![Python](https://img.shields.io/pypi/pyversions/emissor-nacional)](https://pypi.org/project/emissor-nacional/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-TUI para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) via o sistema nacional da Receita Federal do Brasil (SEFIN/ADN). Voltado para prestadores de serviço que emitem notas para clientes no exterior (exportação de serviços).
+Ferramenta TUI para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) via o Sistema Nacional da NFS-e (SEFIN/ADN). Voltada para prestadores de serviço que emitem notas para clientes no exterior (exportação de serviços).
+
+## Aviso importante
+
+- Este projeto foi criado para **uso pessoal**.
+- Surgiu da necessidade de um fluxo mais prático para emissão, diante da obrigatoriedade de uso do emissor nacional oficial, que na prática pode ser burocrático e pouco produtivo para alguns cenários.
+- Este software é **independente e não oficial**: não possui vínculo com a Receita Federal, com a SEFIN, com a ADN nem com qualquer órgão governamental.
+- O uso é por conta e risco do usuário.
 
 ## Funcionalidades
 
@@ -24,7 +31,7 @@ TUI para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) via o sistema n
 
 ## Instalação
 
-### Via pip / pipx
+### Via `pip` / `pipx`
 
 ```bash
 pip install emissor-nacional
@@ -77,6 +84,12 @@ op_simp_nac: "1"      # 1 = optante Simples Nacional
 reg_esp_trib: "0"     # regime especial de tributação
 serie: "900"           # série da NFS-e
 ver_aplic: "emissor-nacional_0.1.0"
+servico:
+  cTribNac: "010101"                          # código de tributação nacional
+  xDescServ: "Desenvolvimento de Software"    # descrição do serviço
+  cNBS: "115022000"                           # código NBS
+  tpMoeda: "220"                              # moeda (220 = USD)
+  cPaisResult: "US"                           # país do resultado
 ```
 
 ### 3. Clientes
@@ -88,7 +101,7 @@ cp config/clients/acme-corp.yaml.example config/clients/meu-cliente.yaml
 Edite com os dados do tomador de serviço:
 
 ```yaml
-nif: "123456789"           # Tax ID do cliente
+nif: "123456789"           # identificação fiscal do cliente (NIF)
 nome: "Acme Corp"
 pais: "US"
 logradouro: "100 Main St"
@@ -127,7 +140,7 @@ emissor-nacional
 | `s`     | Sincronizar com servidor                    |
 | `v`     | Validar certificado e configuração          |
 | `e`     | Alternar ambiente (homologação / produção)  |
-| `j`/`k` | Navegar tabela (vim-style)                  |
+| `j`/`k` | Navegar na tabela (estilo vim)              |
 | `f`     | Filtrar por data                            |
 | `h`     | Ajuda                                       |
 | `q`     | Sair                                        |
@@ -142,7 +155,7 @@ O ambiente padrão é **homologação** (testes). Para emitir notas reais, alter
 uv run pytest tests/ -v --cov     # testes + cobertura
 uv run ruff check src/ tests/     # lint
 uv run ruff format src/ tests/    # formatar
-uv run pyright src/               # type check
+uv run pyright src/               # checagem de tipos
 ```
 
 ## Licença
