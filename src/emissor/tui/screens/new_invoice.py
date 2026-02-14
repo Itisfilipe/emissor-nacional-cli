@@ -70,6 +70,7 @@ class NewInvoiceScreen(ModalScreen):
     def on_mount(self) -> None:
         self._show_phase("form")
         self._load_clients()
+        self.query_one("#client-select", Select).focus()
 
     def _show_phase(self, phase: str) -> None:
         self._phase = phase
@@ -234,6 +235,27 @@ class NewInvoiceScreen(ModalScreen):
     def _do_submit(self) -> None:
         if not self._prepared:
             return
+        env = self.app.env  # type: ignore[attr-defined]
+        if env == "producao":
+            from emissor.tui.screens.confirm import ConfirmScreen
+
+            self.app.push_screen(
+                ConfirmScreen(
+                    "⚠ Você está emitindo uma NFS-e em PRODUÇÃO.\n\n"
+                    "Esta nota terá validade fiscal e não poderá\n"
+                    "ser desfeita.\n\n"
+                    "Confirmar envio?"
+                ),
+                callback=self._on_submit_confirmed,
+            )
+        else:
+            self._execute_submit()
+
+    def _on_submit_confirmed(self, confirmed: bool | None) -> None:
+        if confirmed:
+            self._execute_submit()
+
+    def _execute_submit(self) -> None:
         self._set_submit_buttons_enabled(False)
         self.notify("Enviando para SEFIN…", severity="information", timeout=5)
         self._run_submit()
