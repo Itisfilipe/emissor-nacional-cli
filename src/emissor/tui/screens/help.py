@@ -30,7 +30,7 @@ class HelpScreen(ModalScreen):
         log.write("")
         log.write(
             "Ferramenta para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) "
-            "via Sistema Nacional da SEFIN/ADN."
+            "via Sistema Nacional da NFS-e (SEFIN/ADN)."
         )
         log.write("")
 
@@ -41,9 +41,15 @@ class HelpScreen(ModalScreen):
         log.write("  [bold cyan]l[/bold cyan]  Clientes           Gerenciar clientes")
         log.write("  [bold cyan]c[/bold cyan]  Consultar          Consultar NFS-e por chave")
         log.write("  [bold cyan]p[/bold cyan]  Baixar PDF         Baixar DANFSE em PDF")
-        log.write("  [bold cyan]y[/bold cyan]  Copiar chave       Copiar chave para clipboard")
+        log.write(
+            "  [bold cyan]y[/bold cyan]  Copiar chave       "
+            "Copiar chave para a área de transferência"
+        )
         log.write("  [bold cyan]s[/bold cyan]  Sincronizar        Buscar notas do servidor")
-        log.write("  [bold cyan]v[/bold cyan]  Validar            Validar certificado e config.")
+        log.write(
+            "  [bold cyan]v[/bold cyan]  Validar            "
+            "Validar certificado e configuração"
+        )
         log.write("  [bold cyan]e[/bold cyan]  Ambiente           Alternar produção/homologação")
         log.write("  [bold cyan]f[/bold cyan]  Filtrar            Focar nos campos de data")
         log.write("  [bold cyan]h[/bold cyan]  Ajuda              Esta tela")
@@ -62,6 +68,11 @@ class HelpScreen(ModalScreen):
             "Este software utiliza as APIs do Sistema Nacional NFS-e "
             "(SEFIN e ADN) para emissão e consulta de notas fiscais de serviço. "
             "Requer certificado digital ICP-Brasil A1 (.pfx) válido."
+        )
+        log.write("")
+        log.write(
+            "Projeto independente e não oficial, sem vínculo com a Receita Federal, "
+            "SEFIN, ADN ou qualquer órgão governamental."
         )
         log.write("")
 
