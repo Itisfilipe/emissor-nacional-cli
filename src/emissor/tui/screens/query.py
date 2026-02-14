@@ -38,6 +38,12 @@ class QueryScreen(ModalScreen):
                 yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
                 yield Button("\u25b6 Consultar", id="btn-consultar", variant="primary")
 
+    def on_mount(self) -> None:
+        self.query_one("#chave-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self._do_query()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
             case "btn-consultar":
@@ -60,9 +66,17 @@ class QueryScreen(ModalScreen):
         try:
             from emissor.config import get_cert_password, get_cert_path
             from emissor.services.adn_client import query_nfse
+            from emissor.utils.registry import find_invoice
 
             env = self.app.env  # type: ignore[attr-defined]
-            result = query_nfse(chave, get_cert_path(), get_cert_password(), env)
+
+            # Use the locally-stored NSU to avoid scanning from zero
+            entry = find_invoice(chave, env=env)
+            start_nsu = entry.get("nsu", 0) if entry else 0
+
+            result = query_nfse(
+                chave, get_cert_path(), get_cert_password(), env, start_nsu=start_nsu
+            )
             text = json.dumps(result, indent=2, ensure_ascii=False)
             self.app.call_from_thread(self._show_result, text)
         except Exception as e:

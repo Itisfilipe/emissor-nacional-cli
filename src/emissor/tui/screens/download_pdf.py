@@ -10,6 +10,19 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 
 
+def _unique_path(path: Path) -> Path:
+    """Return a non-conflicting path by appending _1, _2, etc. if needed."""
+    if not path.exists():
+        return path
+    stem, suffix, parent = path.stem, path.suffix, path.parent
+    counter = 1
+    candidate = parent / f"{stem}_{counter}{suffix}"
+    while candidate.exists():
+        counter += 1
+        candidate = parent / f"{stem}_{counter}{suffix}"
+    return candidate
+
+
 class DownloadPdfScreen(ModalScreen):
     """Download DANFSE PDF for an NFS-e."""
 
@@ -41,6 +54,12 @@ class DownloadPdfScreen(ModalScreen):
                 yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
                 yield Button("\u2913 Baixar", id="btn-baixar", variant="primary")
 
+    def on_mount(self) -> None:
+        self.query_one("#chave-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self._do_download()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
             case "btn-baixar":
@@ -71,8 +90,9 @@ class DownloadPdfScreen(ModalScreen):
 
             env = self.app.env  # type: ignore[attr-defined]
             content = download_danfse(chave, get_cert_path(), get_cert_password(), env)
-            Path(output).write_bytes(content)
-            self.app.call_from_thread(self._show_success, output)
+            final_path = _unique_path(Path(output))
+            final_path.write_bytes(content)
+            self.app.call_from_thread(self._show_success, str(final_path))
         except Exception as e:
             self.app.call_from_thread(self._show_error, str(e))
 
