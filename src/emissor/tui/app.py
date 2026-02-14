@@ -15,7 +15,7 @@ class EmissorApp(App):
         Binding("q", "quit", "Sair", priority=True),
     ]
 
-    def __init__(self, env: str = "homologacao"):
+    def __init__(self, env: str = "producao"):
         super().__init__()
         self.env = env
 

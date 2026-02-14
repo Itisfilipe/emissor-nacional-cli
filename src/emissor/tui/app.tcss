@@ -40,7 +40,7 @@ DashboardScreen #app-title {
 }
 
 DashboardScreen #env-badge {
-    min-width: 0;
+    min-width: 21;
     height: 1;
     border: none;
     padding: 0 2;
@@ -118,18 +118,9 @@ DashboardScreen #filter-tipo {
 }
 
 DashboardScreen #filter-preset {
-    width: auto;
+    width: 14;
     height: 1;
-    layout: horizontal;
-    border: none;
     margin: 0 1 0 0;
-}
-
-DashboardScreen #filter-preset RadioButton {
-    width: auto;
-    height: 1;
-    padding: 0 1;
-    border: none;
 }
 
 DashboardScreen #filter-tipo SelectCurrent,
@@ -179,6 +170,23 @@ DashboardScreen #env-badge.env-homol:hover {
 
 DashboardScreen #env-badge.env-prod:hover {
     background: $error-lighten-1;
+}
+
+/* Action buttons row */
+DashboardScreen #action-bar {
+    height: 3;
+    layout: horizontal;
+    margin: 1 0 0 0;
+    padding: 0;
+}
+
+DashboardScreen #action-bar Button {
+    min-width: 0;
+    margin: 0 1 0 0;
+}
+
+DashboardScreen #action-bar Button:last-of-type {
+    margin-right: 0;
 }
 
 /* DataTable */
@@ -246,6 +254,40 @@ ModalScreen {
     color: $text-muted;
 }
 
+#modal-dialog Input {
+    height: 1;
+    border: none;
+    padding: 0 1;
+    background: $boost;
+    margin-bottom: 1;
+}
+
+#modal-dialog Input:focus {
+    background: $panel;
+}
+
+#modal-dialog Select {
+    height: 1;
+    margin-bottom: 1;
+}
+
+#modal-dialog SelectCurrent {
+    height: 1;
+    border: none;
+    padding: 0 1;
+    background: $boost;
+}
+
+#modal-dialog #error-label {
+    height: 1;
+    color: $error;
+}
+
+#modal-dialog #status-label {
+    height: 1;
+    color: $success;
+}
+
 #modal-dialog .button-bar {
     height: 3;
     margin-top: 1;
@@ -257,18 +299,6 @@ ModalScreen {
     margin-left: 1;
 }
 
-#modal-dialog #error-label {
-    height: 1;
-    margin-top: 1;
-    color: $error;
-}
-
-#modal-dialog #status-label {
-    height: 1;
-    margin-top: 1;
-    color: $success;
-}
-
 #modal-dialog #query-result,
 #modal-dialog #validation-output,
 #modal-dialog #help-content {
@@ -276,10 +306,20 @@ ModalScreen {
     margin-top: 1;
 }
 
+/* Clients screen */
+#modal-dialog #clients-list-container {
+    height: 1fr;
+}
+
+#modal-dialog #client-form-container {
+    height: 1fr;
+    overflow-y: auto;
+}
+
 /* New Invoice specifics */
 #modal-dialog #form-container {
-    height: auto;
-    max-height: 80%;
+    height: 1fr;
+    overflow-y: auto;
 }
 
 #modal-dialog #preview-container {
