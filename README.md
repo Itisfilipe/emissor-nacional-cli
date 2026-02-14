@@ -158,6 +158,14 @@ uv run ruff format src/ tests/    # formatar
 uv run pyright src/               # checagem de tipos
 ```
 
+## Segurança
+
+Para reportar vulnerabilidades, consulte a [política de segurança](SECURITY.md).
+
+## Contribuindo
+
+Veja o [guia de contribuição](CONTRIBUTING.md).
+
 ## Licença
 
 [MIT](LICENSE)
