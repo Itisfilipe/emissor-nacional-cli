@@ -46,12 +46,16 @@ class ValidateScreen(ModalScreen):
         except Exception as e:
             lines.append(f"[red]ERRO[/red] Emitente: {e}")
 
-        # Certificate
+        # Certificate + ADN connectivity (both need the certificate)
+        pfx_path: str | None = None
+        pfx_password: str | None = None
         try:
             from emissor.config import get_cert_password, get_cert_path
             from emissor.utils.certificate import validate_certificate
 
-            info = validate_certificate(get_cert_path(), get_cert_password())
+            pfx_path = get_cert_path()
+            pfx_password = get_cert_password()
+            info = validate_certificate(pfx_path, pfx_password)
             status = "[green]válido[/green]" if info["valid"] else "[red]expirado[/red]"
             lines.append(f"[green]OK[/green] Certificado: {status}")
             lines.append(f"   Sujeito: {info['subject']}")
@@ -81,6 +85,19 @@ class ValidateScreen(ModalScreen):
                 lines.append("[yellow]AVISO[/yellow] Nenhum cliente configurado")
         except Exception as e:
             lines.append(f"[red]ERRO[/red] Clientes: {e}")
+
+        # ADN connectivity
+        if pfx_path and pfx_password:
+            try:
+                from emissor.services.adn_client import check_connectivity
+
+                env = self.app.env  # type: ignore[attr-defined]
+                check_connectivity(pfx_path, pfx_password, env)
+                lines.append(f"[green]OK[/green] Conectividade ADN ({env})")
+            except Exception as e:
+                lines.append(f"[red]ERRO[/red] Conectividade ADN: {e}")
+        else:
+            lines.append("[red]ERRO[/red] Conectividade ADN: certificado não configurado")
 
         self.app.call_from_thread(self._display_lines, lines)
 
