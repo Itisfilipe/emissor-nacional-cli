@@ -3,7 +3,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from textual.widgets import Button, Label, Select
+from textual.widgets import Button, Label, MaskedInput, Select
 
 from emissor.tui.app import EmissorApp
 from emissor.tui.screens.new_invoice import NewInvoiceScreen
@@ -71,7 +71,7 @@ async def test_prepare_shows_preview(mock_config):
 
             screen.query_one("#valor-brl", Input).value = "1000.00"
             screen.query_one("#valor-usd", Input).value = "200.00"
-            screen.query_one("#competencia", Input).value = "2025-12-30"
+            screen.query_one("#competencia", MaskedInput).value = "30/12/2025"
 
             # Click Preparar
             screen.query_one("#btn-preparar", Button).press()
@@ -131,7 +131,7 @@ async def test_submit_disables_buttons(mock_config):
 
             screen.query_one("#valor-brl", Input).value = "1000.00"
             screen.query_one("#valor-usd", Input).value = "200.00"
-            screen.query_one("#competencia", Input).value = "2025-12-30"
+            screen.query_one("#competencia", MaskedInput).value = "30/12/2025"
 
             screen.query_one("#btn-preparar", Button).press()
             await pilot.pause()
@@ -183,7 +183,7 @@ async def test_submit_success_shows_result(mock_config):
 
             screen.query_one("#valor-brl", Input).value = "1000.00"
             screen.query_one("#valor-usd", Input).value = "200.00"
-            screen.query_one("#competencia", Input).value = "2025-12-30"
+            screen.query_one("#competencia", MaskedInput).value = "30/12/2025"
 
             screen.query_one("#btn-preparar", Button).press()
             await pilot.pause()
@@ -226,7 +226,7 @@ async def test_save_xml_success(mock_config):
 
             screen.query_one("#valor-brl", Input).value = "1000.00"
             screen.query_one("#valor-usd", Input).value = "200.00"
-            screen.query_one("#competencia", Input).value = "2025-12-30"
+            screen.query_one("#competencia", MaskedInput).value = "30/12/2025"
 
             screen.query_one("#btn-preparar", Button).press()
             await pilot.pause()
@@ -237,3 +237,44 @@ async def test_save_xml_success(mock_config):
 
             status_text = screen.query_one("#status-label", Label).render().plain
             assert "dry_run_dps_5" in status_text
+
+
+@pytest.mark.asyncio
+async def test_new_invoice_prefill_sets_values(mock_config):
+    """Prefill dict pre-populates client and values."""
+    prefill = {"client_slug": "acme", "valor_brl": "5000.00", "valor_usd": "1000.00"}
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        from textual.widgets import Input
+
+        app.push_screen(NewInvoiceScreen(prefill=prefill))
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NewInvoiceScreen)
+
+        sel = screen.query_one("#client-select", Select)
+        assert sel.value == "acme"
+        assert screen.query_one("#valor-brl", Input).value == "5000.00"
+        assert screen.query_one("#valor-usd", Input).value == "1000.00"
+        # Date should NOT be pre-filled
+        assert screen.query_one("#competencia", MaskedInput).value == ""
+
+
+@pytest.mark.asyncio
+async def test_new_invoice_no_prefill_default(mock_config):
+    """Without prefill, form starts empty as before."""
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        from textual.widgets import Input
+
+        await pilot.press("n")
+        await pilot.pause()
+
+        screen = app.screen
+        assert isinstance(screen, NewInvoiceScreen)
+
+        sel = screen.query_one("#client-select", Select)
+        assert sel.value is Select.BLANK
+        assert screen.query_one("#valor-brl", Input).value == ""
+        assert screen.query_one("#valor-usd", Input).value == ""
