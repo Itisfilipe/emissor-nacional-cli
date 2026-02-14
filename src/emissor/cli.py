@@ -33,7 +33,7 @@ def _init_config() -> None:
         copied += 1
 
     print()
-    print(f"Config:  {config_dir}")
+    print(f"Configuração: {config_dir}")
     print(f"Dados:   {data_dir}")
     print()
     if copied:
