@@ -59,6 +59,12 @@ class ClientsScreen(ModalScreen):
                 yield Input(placeholder="NY", id="client-estado")
                 yield Label("CEP", classes="form-label")
                 yield Input(placeholder="10001", id="client-cep")
+                yield Label("Complemento", classes="form-label")
+                yield Input(placeholder="Sala 101", id="client-complemento")
+                yield Label("Mecanismo de afastamento do COMEX (prestador)", classes="form-label")
+                yield Input(placeholder="02", id="client-mec-af-comex-p", value="02")
+                yield Label("Mecanismo de afastamento do COMEX (tomador)", classes="form-label")
+                yield Input(placeholder="02", id="client-mec-af-comex-t", value="02")
                 yield Label("", id="client-error-label")
                 with Horizontal(classes="button-bar"):
                     yield Button("\u2190 Voltar", id="btn-form-back", variant="error")
@@ -68,6 +74,7 @@ class ClientsScreen(ModalScreen):
     def on_mount(self) -> None:
         self._show_phase("list")
         self._load_clients()
+        self.query_one("#clients-table", DataTable).focus()
 
     def _show_phase(self, phase: str) -> None:
         self._phase = phase
@@ -128,6 +135,7 @@ class ClientsScreen(ModalScreen):
         self.query_one("#client-slug", Input).disabled = False
         self.query_one("#btn-form-delete", Button).display = False
         self._show_phase("form")
+        self.query_one("#client-slug", Input).focus()
 
     def _open_edit_form(self, slug: str) -> None:
         self._editing_slug = slug
@@ -158,7 +166,15 @@ class ClientsScreen(ModalScreen):
         self.query_one("#client-cidade", Input).value = data.get("cidade", "")
         self.query_one("#client-estado", Input).value = data.get("estado", "")
         self.query_one("#client-cep", Input).value = data.get("cep", "")
+        self.query_one("#client-complemento", Input).value = data.get("complemento", "")
+        self.query_one("#client-mec-af-comex-p", Input).value = str(
+            data.get("mec_af_comex_p", "02")
+        )
+        self.query_one("#client-mec-af-comex-t", Input).value = str(
+            data.get("mec_af_comex_t", "02")
+        )
         self._show_phase("form")
+        self.query_one("#client-nome", Input).focus()
 
     def _clear_form(self) -> None:
         self.query_one("#client-slug", Input).value = ""
@@ -171,6 +187,9 @@ class ClientsScreen(ModalScreen):
         self.query_one("#client-cidade", Input).value = ""
         self.query_one("#client-estado", Input).value = ""
         self.query_one("#client-cep", Input).value = ""
+        self.query_one("#client-complemento", Input).value = ""
+        self.query_one("#client-mec-af-comex-p", Input).value = "02"
+        self.query_one("#client-mec-af-comex-t", Input).value = "02"
         self.query_one("#client-error-label", Label).update("")
 
     def _do_save(self) -> None:
@@ -187,6 +206,9 @@ class ClientsScreen(ModalScreen):
         cidade = self.query_one("#client-cidade", Input).value.strip()
         estado = self.query_one("#client-estado", Input).value.strip()
         cep = self.query_one("#client-cep", Input).value.strip()
+        complemento = self.query_one("#client-complemento", Input).value.strip()
+        mec_af_comex_p = self.query_one("#client-mec-af-comex-p", Input).value.strip()
+        mec_af_comex_t = self.query_one("#client-mec-af-comex-t", Input).value.strip()
 
         errors: list[str] = []
         if not slug or not re.match(r"^[a-z0-9_-]+$", slug):
@@ -217,7 +239,7 @@ class ClientsScreen(ModalScreen):
             error_label.update(" | ".join(errors))
             return
 
-        data = {
+        data: dict[str, str] = {
             "nif": nif,
             "nome": nome,
             "pais": pais or "US",
@@ -228,6 +250,10 @@ class ClientsScreen(ModalScreen):
             "estado": estado,
             "cep": cep,
         }
+        if complemento:
+            data["complemento"] = complemento
+        data["mec_af_comex_p"] = mec_af_comex_p or "02"
+        data["mec_af_comex_t"] = mec_af_comex_t or "02"
         self._run_save(slug, data)
 
     @work(thread=True)
