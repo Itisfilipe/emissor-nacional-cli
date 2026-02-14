@@ -11,17 +11,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.events import Key
 from textual.screen import Screen
-from textual.widgets import (
-    Button,
-    DataTable,
-    Footer,
-    Label,
-    MaskedInput,
-    RadioButton,
-    RadioSet,
-    Select,
-    Static,
-)
+from textual.widgets import Button, DataTable, Footer, Label, MaskedInput, Select, Static
 
 from emissor.config import BRT
 
@@ -30,11 +20,15 @@ class DashboardScreen(Screen):
     """Main dashboard screen shown on startup."""
 
     BINDINGS = [
-        Binding("n", "new_invoice", "Nova NFS-e"),
-        Binding("c", "query", "Consultar"),
-        Binding("p", "download_pdf", "Baixar PDF"),
-        Binding("y", "copy_key", "Copiar chave"),
-        Binding("s", "sync", "Sincronizar"),
+        # List actions — hidden from footer (have buttons above table)
+        Binding("n", "new_invoice", "Nova NFS-e", show=False),
+        Binding("r", "clone_invoice", "Clonar", show=False),
+        Binding("c", "query", "Consultar", show=False),
+        Binding("p", "download_pdf", "Baixar PDF", show=False),
+        Binding("y", "copy_key", "Copiar chave", show=False),
+        Binding("s", "sync", "Sincronizar", show=False),
+        # Generic actions — shown in footer
+        Binding("l", "clients", "Clientes"),
         Binding("v", "validate", "Validar"),
         Binding("e", "toggle_env", "Ambiente"),
         Binding("f", "focus_filter", "Filtrar"),
@@ -60,16 +54,13 @@ class DashboardScreen(Screen):
         with Horizontal(id="info-bar"):
             with Vertical(id="card-emitter", classes="info-card"):
                 yield Label("Emitente", classes="card-title")
-                yield Label("…", id="emitter-info", classes="card-value")
+                yield Label("\u2026", id="emitter-info", classes="card-value")
             with Vertical(id="card-cert", classes="info-card"):
                 yield Label("Certificado", classes="card-title")
-                yield Label("…", id="cert-info", classes="card-value")
+                yield Label("\u2026", id="cert-info", classes="card-value")
             with Vertical(id="card-seq", classes="info-card"):
-                yield Label("Sequência", classes="card-title")
-                yield Label("…", id="seq-info", classes="card-value")
-            with Vertical(id="card-clients", classes="info-card"):
-                yield Label("Clientes", classes="card-title")
-                yield Label("…", id="clients-info", classes="card-value")
+                yield Label("Sequ\u00eancia", classes="card-title")
+                yield Label("\u2026", id="seq-info", classes="card-value")
 
         # Filter bar
         with Horizontal(id="filter-bar"):
@@ -80,16 +71,26 @@ class DashboardScreen(Screen):
                 allow_blank=False,
                 id="filter-tipo",
             )
-            with RadioSet(id="filter-preset"):
-                yield RadioButton("Todos", value=True, id="filter-todos")
-                yield RadioButton("Hoje", id="filter-hoje")
-                yield RadioButton("Semana", id="filter-semana")
-                yield RadioButton("Mês", id="filter-mes")
+            yield Select(
+                [("Todos", "todos"), ("Hoje", "hoje"), ("Semana", "semana"), ("M\u00eas", "mes")],
+                value="todos",
+                allow_blank=False,
+                id="filter-preset",
+            )
             yield Static("De:", id="label-de")
             yield MaskedInput(template="00/00/0000", id="filter-de")
             yield Static("Até:", id="label-ate")
             yield MaskedInput(template="00/00/0000", id="filter-ate")
-            yield Button("\u25b7 Filtrar", id="btn-filtrar")
+            yield Button("\u25b7 Filtrar", id="btn-filtrar", variant="primary")
+
+        # Action buttons row
+        with Horizontal(id="action-bar"):
+            yield Button("+ Nova NFS-e", id="btn-new", variant="primary")
+            yield Button("\u21bb Clonar", id="btn-clone")
+            yield Button("\u25b6 Consultar", id="btn-query")
+            yield Button("\u21d3 Baixar PDF", id="btn-pdf")
+            yield Button("\u2398 Copiar", id="btn-copy")
+            yield Button("\u21c4 Sincronizar", id="btn-sync", variant="success")
 
         # DataTable
         yield DataTable(id="recent-table", cursor_type="row")
@@ -108,7 +109,6 @@ class DashboardScreen(Screen):
         self._load_emitter()
         self._load_certificate()
         self._load_sequence()
-        self._load_clients()
         self._scan_invoices()
         self.query_one("#recent-table", DataTable).focus()
         self._auto_sync()
@@ -173,17 +173,6 @@ class DashboardScreen(Screen):
         except Exception as e:
             text = f"erro - {e}"
         self.app.call_from_thread(self._update_label, "seq-info", text)
-
-    @work(thread=True)
-    def _load_clients(self) -> None:
-        try:
-            from emissor.config import list_clients
-
-            clients = list_clients()
-            text = ", ".join(clients) if clients else "nenhum"
-        except Exception as e:
-            text = f"erro - {e}"
-        self.app.call_from_thread(self._update_label, "clients-info", text)
 
     @work(thread=True)
     def _scan_invoices(self) -> None:
@@ -270,15 +259,14 @@ class DashboardScreen(Screen):
         if de_val or ate_val:
             filtered = self._filter_by_dates(filtered, de_val, ate_val)
         else:
-            # Use preset
-            idx = self.query_one("#filter-preset", RadioSet).pressed_index
-            if idx == 1:  # Hoje
+            preset = self.query_one("#filter-preset", Select).value
+            if preset == "hoje":
                 today = datetime.now(tz=BRT).date()
                 filtered = [i for i in filtered if i["datetime"].date() == today]
-            elif idx == 2:  # Semana
+            elif preset == "semana":
                 week_ago = datetime.now(tz=BRT) - timedelta(days=7)
                 filtered = [i for i in filtered if i["datetime"] >= week_ago]
-            elif idx == 3:  # Mes
+            elif preset == "mes":
                 month_ago = datetime.now(tz=BRT) - timedelta(days=30)
                 filtered = [i for i in filtered if i["datetime"] >= month_ago]
 
@@ -342,11 +330,8 @@ class DashboardScreen(Screen):
 
     # --- Event handlers ---
 
-    def on_select_changed(self) -> None:
-        self._apply_filter()
-
-    def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
-        if event.radio_set.id == "filter-preset":
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "filter-preset":
             self.query_one("#filter-de", MaskedInput).clear()
             self.query_one("#filter-ate", MaskedInput).clear()
         self._apply_filter()
@@ -357,6 +342,18 @@ class DashboardScreen(Screen):
                 self.action_toggle_env()
             case "btn-filtrar":
                 self._apply_filter()
+            case "btn-new":
+                self.action_new_invoice()
+            case "btn-clone":
+                self.action_clone_invoice()
+            case "btn-query":
+                self.action_query()
+            case "btn-pdf":
+                self.action_download_pdf()
+            case "btn-copy":
+                self.action_copy_key()
+            case "btn-sync":
+                self.action_sync()
 
     def _selected_stem(self) -> str | None:
         """Return the stem of the currently selected row, or None if empty."""
@@ -397,6 +394,43 @@ class DashboardScreen(Screen):
         from emissor.tui.screens.new_invoice import NewInvoiceScreen
 
         self.app.push_screen(NewInvoiceScreen())
+
+    def action_clone_invoice(self) -> None:
+        stem = self._selected_stem()
+        if not stem:
+            self.notify("Nenhuma nota selecionada", severity="warning", timeout=3)
+            return
+        entry = next(
+            (i for i in self._all_invoices if i["stem"] == stem),
+            None,
+        )
+        if not entry:
+            return
+        prefill: dict = {}
+        # Look up full registry entry for client_slug and valor_usd
+        from emissor.utils.registry import list_invoices
+
+        env = self.app.env  # type: ignore[attr-defined]
+        reg_entry = next(
+            (e for e in list_invoices(env) if e.get("chave") == stem),
+            None,
+        )
+        if reg_entry:
+            if reg_entry.get("client_slug"):
+                prefill["client_slug"] = reg_entry["client_slug"]
+            if reg_entry.get("valor_usd"):
+                prefill["valor_usd"] = reg_entry["valor_usd"]
+        if entry.get("valor"):
+            prefill["valor_brl"] = entry["valor"]
+
+        from emissor.tui.screens.new_invoice import NewInvoiceScreen
+
+        self.app.push_screen(NewInvoiceScreen(prefill=prefill))
+
+    def action_clients(self) -> None:
+        from emissor.tui.screens.clients import ClientsScreen
+
+        self.app.push_screen(ClientsScreen())
 
     def action_query(self) -> None:
         stem = self._selected_stem()
