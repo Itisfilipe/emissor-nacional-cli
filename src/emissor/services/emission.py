@@ -49,6 +49,7 @@ class PreparedDPS:
     env: str
     pfx_path: str
     pfx_password: str
+    client_slug: str = ""
 
 
 def prepare(
@@ -98,6 +99,7 @@ def prepare(
         env=env,
         pfx_path=pfx_path,
         pfx_password=pfx_password,
+        client_slug=client_name,
     )
 
 
@@ -135,7 +137,9 @@ def submit(prepared: PreparedDPS) -> dict:
                 chave,
                 n_dps=prepared.n_dps,
                 client=prepared.client.nome,
+                client_slug=prepared.client_slug,
                 valor_brl=prepared.invoice.valor_brl,
+                valor_usd=prepared.invoice.valor_usd,
                 competencia=prepared.invoice.competencia,
                 emitted_at=prepared.invoice.dh_emi,
                 env=prepared.env,
