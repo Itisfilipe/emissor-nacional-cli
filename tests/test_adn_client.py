@@ -9,7 +9,9 @@ import pytest
 from emissor.services.adn_client import (
     _check_response,
     _fetch_dfe_page,
+    check_connectivity,
     download_danfse,
+    iter_dfe,
     list_dfe,
     query_nfse,
 )
@@ -69,6 +71,13 @@ class TestQueryNfse:
         with pytest.raises(RuntimeError):
             query_nfse("key", "/cert.pfx", "pass", env="producao")
         mock_iter.assert_called_once_with("/cert.pfx", "pass", nsu=0, env="producao")
+
+    @patch("emissor.services.adn_client.iter_dfe")
+    def test_start_nsu(self, mock_iter):
+        mock_iter.return_value = iter([_make_doc("key456", 50)])
+        result = query_nfse("key456", "/cert.pfx", "pass", start_nsu=42)
+        assert result["chave"] == "key456"
+        mock_iter.assert_called_once_with("/cert.pfx", "pass", nsu=42, env="homologacao")
 
 
 class TestListDfe:
@@ -142,6 +151,35 @@ class TestDownloadDanfse:
         mock_get.return_value = _mock_response(ok=False, status_code=500, text="Error")
         with pytest.raises(RuntimeError, match=r"ADN download error.*500"):
             download_danfse("key", "/cert.pfx", "pass")
+
+
+class TestCheckConnectivity:
+    @patch("emissor.services.adn_client._fetch_dfe_page")
+    def test_success(self, mock_fetch):
+        mock_fetch.return_value = {"LoteDFe": []}
+        check_connectivity("/cert.pfx", "pass", "homologacao")
+        mock_fetch.assert_called_once_with("/cert.pfx", "pass", 0, "homologacao")
+
+    @patch("emissor.services.adn_client._fetch_dfe_page")
+    def test_error(self, mock_fetch):
+        mock_fetch.side_effect = RuntimeError("Connection refused")
+        with pytest.raises(RuntimeError, match="Connection refused"):
+            check_connectivity("/cert.pfx", "pass", "producao")
+
+
+class TestEnvDefaults:
+    """Verify all public functions default to homologacao."""
+
+    @pytest.mark.parametrize(
+        "func",
+        [iter_dfe, list_dfe, query_nfse, download_danfse, check_connectivity],
+        ids=lambda f: f.__name__,
+    )
+    def test_env_defaults_to_homologacao(self, func):
+        import inspect
+
+        sig = inspect.signature(func)
+        assert sig.parameters["env"].default == "homologacao"
 
 
 class TestCheckResponse:
