@@ -168,7 +168,8 @@ class DashboardScreen(Screen):
         try:
             from emissor.utils.sequence import peek_next_n_dps
 
-            n = peek_next_n_dps()
+            env = self.app.env  # type: ignore[attr-defined]
+            n = peek_next_n_dps(env)
             text = f"Próximo: {n}"
         except Exception as e:
             text = f"erro - {e}"
@@ -458,7 +459,10 @@ class DashboardScreen(Screen):
             subprocess.run(cmd, input=stem.encode(), check=True, timeout=5)
             self.notify(f"Chave copiada: {stem}")
         except FileNotFoundError:
-            self.notify(f"Clipboard indisponível. Chave: {stem}", severity="warning")
+            self.notify(
+                f"Área de transferência indisponível. Chave: {stem}",
+                severity="warning",
+            )
         except Exception:
             self.notify(f"Chave: {stem}", severity="warning")
 
@@ -510,20 +514,23 @@ class DashboardScreen(Screen):
         """Fetch and register NFS-e from ADN. Shared by auto-sync and manual sync."""
         try:
             from emissor.config import get_cert_password, get_cert_path, load_emitter
-            from emissor.services.adn_client import list_dfe, parse_dfe_xml
-            from emissor.utils.registry import add_invoice
+            from emissor.services.adn_client import iter_dfe, parse_dfe_xml
+            from emissor.utils.registry import add_invoice, get_last_nsu, set_last_nsu
 
             env = self.app.env  # type: ignore[attr-defined]
             pfx_path = get_cert_path()
             pfx_password = get_cert_password()
             my_cnpj = load_emitter()["cnpj"]
 
-            data = list_dfe(pfx_path, pfx_password, nsu=0, env=env)
-            docs = data.get("LoteDFe", [])
+            last_nsu = get_last_nsu(env)
+            max_nsu = last_nsu
             total = 0
 
-            for doc in docs:
+            for doc in iter_dfe(pfx_path, pfx_password, nsu=last_nsu, env=env):
                 chave = doc.get("ChaveAcesso", "")
+                doc_nsu = doc.get("NSU", 0)
+                if doc_nsu > max_nsu:
+                    max_nsu = doc_nsu
                 if not chave:
                     continue
 
@@ -538,9 +545,13 @@ class DashboardScreen(Screen):
                     valor_brl=meta["valor"],
                     competencia=meta["competencia"],
                     emitted_at=doc.get("DataHoraGeracao"),
+                    nsu=doc_nsu if doc_nsu else None,
                     env=env,
                     status="emitida" if emitida else "recebida",
                 )
+
+            if max_nsu > last_nsu:
+                set_last_nsu(env, max_nsu)
 
             self.app.call_from_thread(self._on_sync_done, total)
         except KeyError:
@@ -556,10 +567,30 @@ class DashboardScreen(Screen):
         self.notify(f"Erro na sincronização: {msg}", severity="error", timeout=5)
 
     def action_toggle_env(self) -> None:
-        new_env = "producao" if self.app.env == "homologacao" else "homologacao"  # type: ignore[attr-defined]
-        self.app.env = new_env  # type: ignore[attr-defined]
-        self._update_env_badge()
-        self._scan_invoices()
+        if self.app.env == "homologacao":  # type: ignore[attr-defined]
+            from emissor.tui.screens.confirm import ConfirmScreen
+
+            self.app.push_screen(
+                ConfirmScreen(
+                    "⚠ Você está alternando para o ambiente de PRODUÇÃO.\n\n"
+                    "Notas emitidas neste ambiente terão validade\n"
+                    "fiscal e não podem ser desfeitas.\n\n"
+                    "Deseja continuar?"
+                ),
+                callback=self._on_env_toggle_confirmed,
+            )
+        else:
+            self.app.env = "homologacao"  # type: ignore[attr-defined]
+            self._update_env_badge()
+            self._load_sequence()
+            self._scan_invoices()
+
+    def _on_env_toggle_confirmed(self, confirmed: bool | None) -> None:
+        if confirmed:
+            self.app.env = "producao"  # type: ignore[attr-defined]
+            self._update_env_badge()
+            self._load_sequence()
+            self._scan_invoices()
 
     def _update_env_badge(self) -> None:
         badge = self.query_one("#env-badge", Button)
