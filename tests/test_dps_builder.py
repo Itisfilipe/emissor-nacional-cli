@@ -105,6 +105,46 @@ def test_drchrono_dps_with_intermediary(emitter, client_with_complement, interme
     assert xml_text(dps, "infDPS/serv/comExt/mecAFComexT") == "01"
 
 
+def test_custom_service_fields_in_xml(client):
+    """Custom servico fields from Emitter appear in the output XML."""
+    from emissor.models.emitter import Emitter
+
+    emitter_dict = {
+        "cnpj": "12345678000199",
+        "razao_social": "ACME SOFTWARE LTDA",
+        "logradouro": "RUA DAS FLORES",
+        "numero": "100",
+        "bairro": "CENTRO",
+        "cod_municipio": "4205407",
+        "uf": "SC",
+        "cep": "88000000",
+        "fone": "48999999999",
+        "email": "contato@acme-software.com.br",
+        "servico": {
+            "cTribNac": "020202",
+            "xDescServ": "Consultoria em TI",
+            "cNBS": "999999999",
+            "tpMoeda": "978",
+            "cPaisResult": "DE",
+        },
+    }
+    custom_emitter = Emitter.from_dict(emitter_dict)
+    invoice = Invoice(
+        valor_brl="5000.00",
+        valor_usd="1000.00",
+        competencia="2025-06-01",
+        n_dps=1,
+        dh_emi="2025-06-01T10:00:00-03:00",
+    )
+    dps = build_dps(custom_emitter, client, invoice, tp_amb="2")
+
+    assert xml_text(dps, "infDPS/serv/cServ/cTribNac") == "020202"
+    assert xml_text(dps, "infDPS/serv/cServ/xDescServ") == "Consultoria em TI"
+    assert xml_text(dps, "infDPS/serv/cServ/cNBS") == "999999999"
+    assert xml_text(dps, "infDPS/serv/comExt/tpMoeda") == "978"
+    assert xml_text(dps, "infDPS/valores/trib/tribMun/cPaisResult") == "DE"
+
+
 def test_dps_element_order_matches_reference(emitter, client_with_complement, intermediary):
     """Verify the element order in infDPS matches the SEFIN schema."""
     invoice = Invoice(
