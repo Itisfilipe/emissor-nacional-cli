@@ -97,6 +97,23 @@ def list_clients() -> list[str]:
     return sorted(f.stem for f in clients_dir.glob("*.yaml"))
 
 
+def save_client(name: str, data: dict) -> Path:
+    """Save a client configuration to config/clients/{name}.yaml (atomic write)."""
+    clients_dir = get_config_dir() / "clients"
+    clients_dir.mkdir(parents=True, exist_ok=True)
+    path = clients_dir / f"{name}.yaml"
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True))
+    os.replace(tmp, path)
+    return path
+
+
+def delete_client(name: str) -> None:
+    """Delete a client configuration file config/clients/{name}.yaml."""
+    path = get_config_dir() / "clients" / f"{name}.yaml"
+    path.unlink()
+
+
 def get_issued_dir(env: str) -> Path:
     """Return the issued-invoices directory for the given environment."""
     return get_data_dir() / env / "issued"
