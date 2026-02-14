@@ -40,17 +40,6 @@ async def test_dashboard_loads_emitter_info(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_loads_clients(mock_config):
-    app = EmissorApp(env="homologacao")
-    async with app.run_test() as pilot:
-        await pilot.pause()
-        label = app.screen.query_one("#clients-info")
-        text = label.render().plain
-        assert "acme" in text
-        assert "globex" in text
-
-
-@pytest.mark.asyncio
 async def test_dashboard_key_n_opens_new_invoice(mock_config):
     from emissor.tui.screens.new_invoice import NewInvoiceScreen
 
@@ -196,7 +185,7 @@ async def test_env_toggle_reloads_table(mock_config, tmp_path):
 @pytest.mark.asyncio
 async def test_filter_preset_hoje(mock_config, tmp_path):
     """The 'Hoje' filter only shows files modified today."""
-    from textual.widgets import DataTable, RadioButton
+    from textual.widgets import DataTable, Select
 
     issued = tmp_path / "homologacao" / "issued"
     issued.mkdir(parents=True)
@@ -219,9 +208,9 @@ async def test_filter_preset_hoje(mock_config, tmp_path):
             table = app.screen.query_one("#recent-table", DataTable)
             assert table.row_count == 2  # Todos shows all
 
-            # Click "Hoje"
-            hoje_radio = app.screen.query_one("#filter-hoje", RadioButton)
-            hoje_radio.value = True
+            # Select "Hoje" preset
+            preset = app.screen.query_one("#filter-preset", Select)
+            preset.value = "hoje"
             await pilot.pause()
 
             assert table.row_count == 1
@@ -374,3 +363,49 @@ async def test_registry_invoices_shown(mock_config, tmp_path):
             table = app.screen.query_one("#recent-table", DataTable)
             # Only the 2 homologacao invoices, not the producao one
             assert table.row_count == 2
+
+
+@pytest.mark.asyncio
+async def test_clone_opens_prefilled_invoice(mock_config, tmp_path):
+    """Pressing 'r' with a selected registry row opens NewInvoiceScreen with prefill."""
+    import json
+
+    from textual.widgets import DataTable
+
+    from emissor.tui.screens.new_invoice import NewInvoiceScreen
+
+    registry_path = tmp_path / "invoices.json"
+    registry_path.write_text(
+        json.dumps(
+            [
+                {
+                    "chave": "NFSe_repeat_001",
+                    "env": "homologacao",
+                    "status": "emitida",
+                    "client": "Acme Corp",
+                    "client_slug": "acme",
+                    "valor_brl": "5000.00",
+                    "valor_usd": "1000.00",
+                    "competencia": "2025-12-01",
+                },
+            ]
+        )
+    )
+
+    (p1,) = _patch_data(tmp_path)
+    with p1:
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            table = app.screen.query_one("#recent-table", DataTable)
+            assert table.row_count == 1
+
+            await pilot.press("r")
+            await pilot.pause()
+
+            screen = app.screen
+            assert isinstance(screen, NewInvoiceScreen)
+            assert screen._prefill is not None
+            assert screen._prefill.get("client_slug") == "acme"
+            assert screen._prefill.get("valor_brl") == "5000.00"
+            assert screen._prefill.get("valor_usd") == "1000.00"
