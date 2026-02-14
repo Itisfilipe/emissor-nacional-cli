@@ -1,13 +1,13 @@
-# Changelog
+# Registro de mudanças
 
-All notable changes to this project will be documented in this file.
+Todas as mudanças relevantes deste projeto serão documentadas neste arquivo.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/),
-and this project adheres to [Semantic Versioning](https://semver.org/).
+O formato segue o [Keep a Changelog](https://keepachangelog.com/),
+e este projeto adota [Versionamento Semântico](https://semver.org/).
 
 ## [0.1.0] - 2025-01-01
 
-### Added
+### Adicionado
 
 - TUI interativa com Textual: dashboard, navegação por teclado, filtros por data
 - Emissão de NFS-e: construção de DPS XML, assinatura digital ICP-Brasil A1, envio via SEFIN
@@ -20,6 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Sequência automática de nDPS (`data/sequence.json`)
 - Configuração via YAML (emitente e clientes) e `.env` (certificado)
 - Variáveis de ambiente `EMISSOR_CONFIG_DIR` / `EMISSOR_DATA_DIR` para instalação global
-- Suite de testes com 136 testes
+- Suíte de testes com 136 testes
 
 [0.1.0]: https://github.com/filipeamaral/emissor-nacional-cli/releases/tag/v0.1.0
