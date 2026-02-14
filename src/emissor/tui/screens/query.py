@@ -32,11 +32,11 @@ class QueryScreen(ModalScreen):
                 placeholder="Chave de acesso da NFS-e",
                 id="chave-input",
             )
-            with Horizontal(classes="button-bar"):
-                yield Button("\u2715 Fechar", id="btn-voltar")
-                yield Button("\u25b6 Consultar", id="btn-consultar", variant="primary")
             yield Label("", id="error-label")
             yield RichLog(id="query-result", wrap=True, markup=True)
+            with Horizontal(classes="button-bar"):
+                yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
+                yield Button("\u25b6 Consultar", id="btn-consultar", variant="primary")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:

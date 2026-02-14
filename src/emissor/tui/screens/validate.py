@@ -22,7 +22,7 @@ class ValidateScreen(ModalScreen):
                 yield Button("\u2715", id="btn-modal-close")
             yield RichLog(id="validation-output", wrap=True, markup=True)
             with Horizontal(classes="button-bar"):
-                yield Button("\u2715 Fechar", id="btn-voltar")
+                yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
 
     def on_mount(self) -> None:
         self.notify("Validando configuração…", severity="information", timeout=2)

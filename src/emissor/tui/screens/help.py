@@ -21,7 +21,7 @@ class HelpScreen(ModalScreen):
                 yield Button("\u2715", id="btn-modal-close")
             yield RichLog(id="help-content", wrap=True, markup=True)
             with Horizontal(classes="button-bar"):
-                yield Button("\u2715 Fechar", id="btn-voltar")
+                yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
 
     def on_mount(self) -> None:
         log = self.query_one("#help-content", RichLog)
@@ -37,6 +37,8 @@ class HelpScreen(ModalScreen):
         log.write("[bold]Atalhos de teclado[/bold]")
         log.write("")
         log.write("  [bold cyan]n[/bold cyan]  Nova NFS-e         Emitir uma nova nota fiscal")
+        log.write("  [bold cyan]r[/bold cyan]  Clonar             Clonar nota selecionada")
+        log.write("  [bold cyan]l[/bold cyan]  Clientes           Gerenciar clientes")
         log.write("  [bold cyan]c[/bold cyan]  Consultar          Consultar NFS-e por chave")
         log.write("  [bold cyan]p[/bold cyan]  Baixar PDF         Baixar DANFSE em PDF")
         log.write("  [bold cyan]y[/bold cyan]  Copiar chave       Copiar chave para clipboard")
