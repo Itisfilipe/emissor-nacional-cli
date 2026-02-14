@@ -35,11 +35,11 @@ class DownloadPdfScreen(ModalScreen):
             yield Label("Caminho de saída", classes="form-label")
             default_output = f"{self._initial_chave}.pdf" if self._initial_chave else ""
             yield Input(value=default_output, placeholder="output.pdf", id="output-input")
-            with Horizontal(classes="button-bar"):
-                yield Button("\u2715 Fechar", id="btn-voltar")
-                yield Button("\u2913 Baixar", id="btn-baixar", variant="primary")
-            yield Label("", id="status-label")
             yield Label("", id="error-label")
+            yield Label("", id="status-label")
+            with Horizontal(classes="button-bar"):
+                yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
+                yield Button("\u2913 Baixar", id="btn-baixar", variant="primary")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
