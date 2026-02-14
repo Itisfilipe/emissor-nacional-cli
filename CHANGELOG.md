@@ -20,6 +20,6 @@ e este projeto adota [Versionamento Semântico](https://semver.org/).
 - Sequência automática de nDPS (`data/sequence.json`)
 - Configuração via YAML (emitente e clientes) e `.env` (certificado)
 - Variáveis de ambiente `EMISSOR_CONFIG_DIR` / `EMISSOR_DATA_DIR` para instalação global
-- Suíte de testes com 136 testes
+- Suíte de testes automatizados
 
 [0.1.0]: https://github.com/filipeamaral/emissor-nacional-cli/releases/tag/v0.1.0
