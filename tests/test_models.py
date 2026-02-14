@@ -33,6 +33,39 @@ class TestEmitter:
         assert e.reg_esp_trib == "0"
         assert e.serie == "900"
         assert e.ver_aplic == "emissor-nacional_0.1.0"
+        # Service defaults when servico key is absent
+        assert e.c_trib_nac == "010101"
+        assert e.x_desc_serv == "Desenvolvimento de Software"
+        assert e.c_nbs == "115022000"
+        assert e.tp_moeda == "220"
+        assert e.c_pais_result == "US"
+
+    def test_from_dict_with_servico(self):
+        d = {
+            "cnpj": "00000000000100",
+            "razao_social": "X",
+            "logradouro": "X",
+            "numero": "1",
+            "bairro": "X",
+            "cod_municipio": "1234567",
+            "uf": "SP",
+            "cep": "00000000",
+            "fone": "11999999999",
+            "email": "x@x.com",
+            "servico": {
+                "cTribNac": "020202",
+                "xDescServ": "Consultoria em TI",
+                "cNBS": "999999999",
+                "tpMoeda": "978",
+                "cPaisResult": "DE",
+            },
+        }
+        e = Emitter.from_dict(d)
+        assert e.c_trib_nac == "020202"
+        assert e.x_desc_serv == "Consultoria em TI"
+        assert e.c_nbs == "999999999"
+        assert e.tp_moeda == "978"
+        assert e.c_pais_result == "DE"
 
     def test_from_dict_missing_required(self):
         with pytest.raises(KeyError):
