@@ -1,0 +1,286 @@
+from __future__ import annotations
+
+from unittest.mock import patch
+
+import pytest
+from textual.widgets import Button, DataTable, Input, Label
+
+from emissor.tui.app import EmissorApp
+from emissor.tui.screens.clients import ClientsScreen
+from emissor.tui.screens.dashboard import DashboardScreen
+
+
+@pytest.mark.asyncio
+async def test_clients_screen_opens_on_l(mock_config):
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        await pilot.press("l")
+        assert isinstance(app.screen, ClientsScreen)
+
+
+@pytest.mark.asyncio
+async def test_clients_screen_shows_list_phase(mock_config):
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        await pilot.press("l")
+        screen = app.screen
+        assert isinstance(screen, ClientsScreen)
+        assert screen.query_one("#clients-list-container").display is True
+        assert screen.query_one("#client-form-container").display is False
+
+
+@pytest.mark.asyncio
+async def test_clients_table_populated(mock_config):
+    client_data = {
+        "acme": {"nome": "Acme Corp", "nif": "123", "pais": "US"},
+        "globex": {"nome": "Globex Inc", "nif": "456", "pais": "BR"},
+    }
+
+    def mock_load(name):
+        return client_data[name]
+
+    with patch("emissor.config.load_client", side_effect=mock_load):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("l")
+            await pilot.pause()
+            table = app.screen.query_one("#clients-table", DataTable)
+            assert table.row_count == 2
+
+
+@pytest.mark.asyncio
+async def test_novo_cliente_switches_to_form(mock_config):
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        await pilot.press("l")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ClientsScreen)
+        screen.query_one("#btn-novo-cliente", Button).press()
+        await pilot.pause()
+        assert screen.query_one("#client-form-container").display is True
+        assert screen.query_one("#clients-list-container").display is False
+        # Slug should be editable for new clients
+        assert screen.query_one("#client-slug", Input).disabled is False
+
+
+@pytest.mark.asyncio
+async def test_save_writes_yaml(mock_config, tmp_path):
+    clients_dir = tmp_path / "clients"
+    clients_dir.mkdir()
+
+    with (
+        patch("emissor.config.get_config_dir", return_value=tmp_path),
+        patch("emissor.config.list_clients", return_value=[]),
+    ):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("l")
+            await pilot.pause()
+            screen = app.screen
+            assert isinstance(screen, ClientsScreen)
+
+            screen.query_one("#btn-novo-cliente", Button).press()
+            await pilot.pause()
+
+            screen.query_one("#client-slug", Input).value = "test-client"
+            screen.query_one("#client-nome", Input).value = "Test Client"
+            screen.query_one("#client-nif", Input).value = "999"
+            screen.query_one("#client-logradouro", Input).value = "123 Main St"
+            screen.query_one("#client-numero", Input).value = "100"
+            screen.query_one("#client-cidade", Input).value = "NYC"
+            screen.query_one("#client-estado", Input).value = "NY"
+            screen.query_one("#client-cep", Input).value = "10001"
+
+            screen.query_one("#btn-salvar-cliente", Button).press()
+            await pilot.pause()
+
+            saved = clients_dir / "test-client.yaml"
+            assert saved.exists()
+
+
+@pytest.mark.asyncio
+async def test_edit_prefills_form(mock_config):
+    client_data = {
+        "acme": {
+            "nome": "Acme Corp",
+            "nif": "123",
+            "pais": "US",
+            "logradouro": "100 Main St",
+            "numero": "100",
+            "bairro": "n/a",
+            "cidade": "New York",
+            "estado": "NY",
+            "cep": "10001",
+        },
+        "globex": {"nome": "Globex", "nif": "456", "pais": "BR"},
+    }
+
+    def mock_load(name):
+        return client_data[name]
+
+    with patch("emissor.config.load_client", side_effect=mock_load):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("l")
+            await pilot.pause()
+            screen = app.screen
+            assert isinstance(screen, ClientsScreen)
+
+            table = screen.query_one("#clients-table", DataTable)
+            assert table.row_count == 2
+
+            # Select first row and trigger edit
+            table.move_cursor(row=0)
+            screen._open_edit_form("acme")
+            await pilot.pause()
+
+            assert screen.query_one("#client-form-container").display is True
+            assert screen.query_one("#client-slug", Input).disabled is True
+            assert screen.query_one("#client-nome", Input).value == "Acme Corp"
+            assert screen.query_one("#client-nif", Input).value == "123"
+
+
+@pytest.mark.asyncio
+async def test_escape_form_goes_to_list(mock_config):
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        await pilot.press("l")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ClientsScreen)
+
+        screen.query_one("#btn-novo-cliente", Button).press()
+        await pilot.pause()
+        assert screen._phase == "form"
+
+        await pilot.press("escape")
+        assert screen._phase == "list"
+
+
+@pytest.mark.asyncio
+async def test_escape_list_closes(mock_config):
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        await pilot.press("l")
+        assert isinstance(app.screen, ClientsScreen)
+
+        await pilot.press("escape")
+        assert isinstance(app.screen, DashboardScreen)
+
+
+@pytest.mark.asyncio
+async def test_save_validation_errors(mock_config):
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        await pilot.press("l")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ClientsScreen)
+
+        screen.query_one("#btn-novo-cliente", Button).press()
+        await pilot.pause()
+
+        # Try to save with empty form
+        screen.query_one("#client-slug", Input).value = ""
+        screen.query_one("#client-nome", Input).value = ""
+        screen.query_one("#btn-salvar-cliente", Button).press()
+        await pilot.pause()
+
+        error_text = screen.query_one("#client-error-label", Label).render().plain
+        assert "slug" in error_text.lower() or "obrigat" in error_text.lower()
+
+
+@pytest.mark.asyncio
+async def test_delete_from_list_requires_confirmation(mock_config):
+    """First press sets confirmation state; file is not yet deleted."""
+    client_data = {"acme": {"nome": "Acme Corp", "nif": "123", "pais": "US"}}
+
+    with patch("emissor.config.load_client", side_effect=lambda n: client_data[n]):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("l")
+            await pilot.pause()
+            screen = app.screen
+            assert isinstance(screen, ClientsScreen)
+
+            # First press — should only set confirmation
+            screen.query_one("#btn-delete-cliente", Button).press()
+            await pilot.pause()
+            assert screen._confirm_delete == "acme"
+
+
+@pytest.mark.asyncio
+async def test_delete_from_list_executes(mock_config, tmp_path):
+    """Second press deletes the YAML file."""
+    clients_dir = tmp_path / "clients"
+    clients_dir.mkdir()
+    (clients_dir / "acme.yaml").write_text("nome: Acme\nnif: 123\npais: US\n")
+
+    with (
+        patch("emissor.config.get_config_dir", return_value=tmp_path),
+        patch("emissor.config.list_clients", return_value=["acme"]),
+        patch(
+            "emissor.config.load_client",
+            return_value={"nome": "Acme", "nif": "123", "pais": "US"},
+        ),
+    ):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("l")
+            await pilot.pause()
+            screen = app.screen
+            assert isinstance(screen, ClientsScreen)
+
+            # First press — confirmation
+            screen.query_one("#btn-delete-cliente", Button).press()
+            await pilot.pause()
+
+            # Second press — actually deletes
+            screen.query_one("#btn-delete-cliente", Button).press()
+            await pilot.pause()
+
+            assert not (clients_dir / "acme.yaml").exists()
+
+
+@pytest.mark.asyncio
+async def test_delete_button_hidden_for_new_client(mock_config):
+    app = EmissorApp(env="homologacao")
+    async with app.run_test() as pilot:
+        await pilot.press("l")
+        await pilot.pause()
+        screen = app.screen
+        assert isinstance(screen, ClientsScreen)
+
+        screen.query_one("#btn-novo-cliente", Button).press()
+        await pilot.pause()
+        assert screen.query_one("#btn-form-delete", Button).display is False
+
+
+@pytest.mark.asyncio
+async def test_delete_button_visible_for_edit(mock_config):
+    client_data = {
+        "acme": {
+            "nome": "Acme Corp",
+            "nif": "123",
+            "pais": "US",
+            "logradouro": "100 Main St",
+            "numero": "100",
+            "bairro": "n/a",
+            "cidade": "New York",
+            "estado": "NY",
+            "cep": "10001",
+        },
+    }
+
+    with patch("emissor.config.load_client", side_effect=lambda n: client_data[n]):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("l")
+            await pilot.pause()
+            screen = app.screen
+            assert isinstance(screen, ClientsScreen)
+
+            screen._open_edit_form("acme")
+            await pilot.pause()
+            assert screen.query_one("#btn-form-delete", Button).display is True
