@@ -63,7 +63,9 @@ def add_invoice(
     *,
     n_dps: int | None = None,
     client: str | None = None,
+    client_slug: str | None = None,
     valor_brl: str | None = None,
+    valor_usd: str | None = None,
     competencia: str | None = None,
     emitted_at: str | None = None,
     env: str = "producao",
@@ -86,8 +88,12 @@ def add_invoice(
             entry["n_dps"] = n_dps
         if client:
             entry["client"] = client
+        if client_slug:
+            entry["client_slug"] = client_slug
         if valor_brl:
             entry["valor_brl"] = valor_brl
+        if valor_usd:
+            entry["valor_usd"] = valor_usd
         if competencia:
             entry["competencia"] = competencia
         if emitted_at:
