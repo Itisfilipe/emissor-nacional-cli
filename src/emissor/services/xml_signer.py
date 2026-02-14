@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from lxml import etree
-from signxml.algorithms import DigestAlgorithm, SignatureMethod
+from signxml.algorithms import (
+    DigestAlgorithm,
+    SignatureConstructionMethod,
+    SignatureMethod,
+)
 from signxml.signer import XMLSigner
 
 from emissor.config import NFSE_NS
@@ -24,7 +28,7 @@ def sign_dps(dps: etree._Element, key_pem: bytes, cert_pem: bytes) -> etree._Ele
         raise ValueError("infDPS is missing Id attribute")
 
     signer = XMLSigner(
-        method=XMLSigner.methods.enveloped,  # type: ignore[attr-defined]
+        method=SignatureConstructionMethod.enveloped,
         signature_algorithm=SignatureMethod.RSA_SHA256,
         digest_algorithm=DigestAlgorithm.SHA256,
         c14n_algorithm="http://www.w3.org/2001/10/xml-exc-c14n#WithComments",
