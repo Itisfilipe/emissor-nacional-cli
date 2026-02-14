@@ -7,7 +7,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Label, Select, Static
+from textual.widgets import Button, DataTable, Input, Label, MaskedInput, Select, Static
 
 if TYPE_CHECKING:
     from emissor.services.emission import PreparedDPS
@@ -20,11 +20,12 @@ class NewInvoiceScreen(ModalScreen):
         Binding("escape", "go_back", "Voltar"),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, prefill: dict | None = None) -> None:
         super().__init__()
         self._prepared: PreparedDPS | None = None
         self._phase = "form"
         self._result_ch_nfse: str | None = None
+        self._prefill = prefill
 
     def compose(self) -> ComposeResult:
         with Vertical(id="modal-dialog"):
@@ -40,30 +41,30 @@ class NewInvoiceScreen(ModalScreen):
                 yield Input(placeholder="19684.93", id="valor-brl")
                 yield Label("Valor USD", classes="form-label")
                 yield Input(placeholder="3640.00", id="valor-usd")
-                yield Label("Competência (YYYY-MM-DD)", classes="form-label")
-                yield Input(placeholder="2025-12-30", id="competencia")
+                yield Label("Competência", classes="form-label")
+                yield MaskedInput(template="00/00/0000", id="competencia")
                 yield Label("Intermediário", classes="form-label")
                 yield Select([], id="intermediario-select", prompt="Nenhum")
-                with Horizontal(classes="button-bar"):
-                    yield Button("\u2715 Fechar", id="btn-form-voltar")
-                    yield Button("\u25b6 Preparar", id="btn-preparar", variant="primary")
                 yield Label("", id="error-label")
+                with Horizontal(classes="button-bar"):
+                    yield Button("\u2715 Fechar", id="btn-form-voltar", variant="error")
+                    yield Button("\u25b6 Preparar", id="btn-preparar", variant="primary")
 
             # Phase 2: Preview
             with Container(id="preview-container"):
                 yield DataTable(id="preview-table", show_header=False)
+                yield Label("", id="status-label")
                 with Horizontal(classes="button-bar"):
                     yield Button("\u2190 Voltar", id="btn-preview-voltar")
                     yield Button("\u2913 Salvar XML", id="btn-salvar", variant="warning")
-                    yield Button("\u2191 Enviar para SEFIN", id="btn-enviar", variant="primary")
-                yield Label("", id="status-label")
+                    yield Button("\u2191 Enviar para SEFIN", id="btn-enviar", variant="success")
 
             # Phase 3: Result
             with Container(id="result-container"):
                 yield Label("", id="result-info")
                 with Horizontal(classes="button-bar"):
-                    yield Button("\u2715 Fechar", id="btn-result-dashboard")
-                    yield Button("\u2913 Baixar PDF", id="btn-result-pdf")
+                    yield Button("\u2715 Fechar", id="btn-result-dashboard", variant="error")
+                    yield Button("\u2913 Baixar PDF", id="btn-result-pdf", variant="primary")
                     yield Button("\u25b6 Consultar", id="btn-result-consultar")
 
     def on_mount(self) -> None:
@@ -93,6 +94,20 @@ class NewInvoiceScreen(ModalScreen):
         self.query_one("#client-select", Select).set_options(options)
         inter_options = [("Nenhum", "__none__"), *options]
         self.query_one("#intermediario-select", Select).set_options(inter_options)
+        if self._prefill:
+            self._apply_prefill(clients)
+
+    def _apply_prefill(self, clients: list[str]) -> None:
+        pf = self._prefill
+        if not pf:
+            return
+        slug = pf.get("client_slug", "")
+        if slug and slug in clients:
+            self.query_one("#client-select", Select).value = slug
+        if pf.get("valor_brl"):
+            self.query_one("#valor-brl", Input).value = pf["valor_brl"]
+        if pf.get("valor_usd"):
+            self.query_one("#valor-usd", Input).value = pf["valor_usd"]
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
@@ -112,27 +127,45 @@ class NewInvoiceScreen(ModalScreen):
                 self._open_query()
 
     def _do_prepare(self) -> None:
+        from datetime import datetime
+
         from emissor.utils.validators import validate_date, validate_monetary
 
         error_label = self.query_one("#error-label", Label)
         error_label.update("")
 
+        errors: list[str] = []
+
         client_sel = self.query_one("#client-select", Select)
         if client_sel.value is Select.BLANK:
-            error_label.update("Selecione um cliente")
-            return
-        client_name = str(client_sel.value)
+            errors.append("Cliente: selecione um cliente")
+        else:
+            client_name = str(client_sel.value)
 
         valor_brl = self.query_one("#valor-brl", Input).value.strip()
         valor_usd = self.query_one("#valor-usd", Input).value.strip()
-        competencia = self.query_one("#competencia", Input).value.strip()
+        competencia_raw = self.query_one("#competencia", MaskedInput).value.strip()
 
         try:
             valor_brl = validate_monetary(valor_brl)
+        except ValueError:
+            errors.append("Valor BRL: valor numérico inválido")
+
+        try:
             valor_usd = validate_monetary(valor_usd)
-            competencia = validate_date(competencia)
-        except ValueError as e:
-            error_label.update(str(e))
+        except ValueError:
+            errors.append("Valor USD: valor numérico inválido")
+
+        # Convert DD/MM/YYYY → YYYY-MM-DD
+        try:
+            dt = datetime.strptime(competencia_raw, "%d/%m/%Y")
+            competencia = dt.strftime("%Y-%m-%d")
+            validate_date(competencia)
+        except ValueError:
+            errors.append("Competência: data inválida (DD/MM/AAAA)")
+
+        if errors:
+            error_label.update(" | ".join(errors))
             return
 
         inter_sel = self.query_one("#intermediario-select", Select)
