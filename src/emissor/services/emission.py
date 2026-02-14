@@ -68,7 +68,7 @@ def prepare(
     if intermediario:
         intermediary = Intermediary.from_dict(load_client(intermediario))
 
-    n_dps = next_n_dps()
+    n_dps = next_n_dps(env)
     tp_amb = TP_AMB[env]
 
     invoice = Invoice(
