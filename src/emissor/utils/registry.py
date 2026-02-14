@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -21,8 +22,12 @@ def _registry_path() -> Path:
     return _config.get_data_dir() / "invoices.json"
 
 
+def _sync_state_path() -> Path:
+    return _config.get_data_dir() / "sync_state.json"
+
+
 @contextmanager
-def _locked():
+def _locked() -> Iterator[None]:
     """Hold an exclusive file lock during registry read-modify-write."""
     rp = _registry_path()
     rp.parent.mkdir(parents=True, exist_ok=True)
@@ -68,40 +73,56 @@ def add_invoice(
     valor_usd: str | None = None,
     competencia: str | None = None,
     emitted_at: str | None = None,
+    nsu: int | None = None,
     env: str = "producao",
     status: str = "emitida",
 ) -> dict[str, Any]:
     """Add an invoice to the registry. Skips if chave already exists."""
+    optional = {
+        "n_dps": n_dps,
+        "client": client,
+        "client_slug": client_slug,
+        "valor_brl": valor_brl,
+        "valor_usd": valor_usd,
+        "competencia": competencia,
+        "emitted_at": emitted_at,
+        "nsu": nsu,
+    }
+
     with _locked():
         entries = _load()
 
         existing = next((e for e in entries if e.get("chave") == chave), None)
         if existing:
+            changed = False
+            for key, value in optional.items():
+                if value is not None and existing.get(key) is None:
+                    existing[key] = value
+                    changed = True
+            if changed:
+                _save(entries)
             return existing
 
         entry: dict[str, Any] = {
             "chave": chave,
             "env": env,
             "status": status,
+            **{k: v for k, v in optional.items() if v is not None},
         }
-        if n_dps is not None:
-            entry["n_dps"] = n_dps
-        if client:
-            entry["client"] = client
-        if client_slug:
-            entry["client_slug"] = client_slug
-        if valor_brl:
-            entry["valor_brl"] = valor_brl
-        if valor_usd:
-            entry["valor_usd"] = valor_usd
-        if competencia:
-            entry["competencia"] = competencia
-        if emitted_at:
-            entry["emitted_at"] = emitted_at
 
         entries.append(entry)
         _save(entries)
         return entry
+
+
+def find_invoice(chave: str, env: str | None = None) -> dict[str, Any] | None:
+    """Look up a single invoice by chave, optionally filtered by env."""
+    with _locked():
+        entries = _load()
+    for e in entries:
+        if e.get("chave") == chave and (env is None or e.get("env") == env):
+            return e
+    return None
 
 
 def remove_invoice(chave: str) -> bool:
@@ -113,3 +134,46 @@ def remove_invoice(chave: str) -> bool:
             return False
         _save(filtered)
         return True
+
+
+# --- Sync state (last-seen NSU per env) ---
+
+
+@contextmanager
+def _sync_locked() -> Iterator[None]:
+    """Hold an exclusive file lock during sync-state read-modify-write."""
+    sp = _sync_state_path()
+    sp.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(sp.with_suffix(".lock"))
+    with lock:
+        yield
+
+
+def get_last_nsu(env: str) -> int:
+    """Return the last-seen NSU for the given environment, or 0 if unknown."""
+    with _sync_locked():
+        sp = _sync_state_path()
+        if not sp.exists():
+            return 0
+        try:
+            data = json.loads(sp.read_text())
+            return int(data.get(env, 0))
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return 0
+
+
+def set_last_nsu(env: str, nsu: int) -> None:
+    """Persist the last-seen NSU for the given environment."""
+    with _sync_locked():
+        sp = _sync_state_path()
+        sp.parent.mkdir(parents=True, exist_ok=True)
+        data: dict[str, int] = {}
+        if sp.exists():
+            try:
+                data = json.loads(sp.read_text())
+            except (json.JSONDecodeError, ValueError):
+                data = {}
+        data[env] = nsu
+        tmp = sp.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2) + "\n")
+        os.replace(tmp, sp)
