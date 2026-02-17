@@ -538,10 +538,11 @@ class NewInvoiceScreen(ModalScreen):
                 errors.append(str(e))
 
         for selector in ("#p-tot-trib-fed", "#p-tot-trib-est", "#p-tot-trib-mun"):
-            val = self.query_one(selector, Input).value.strip()
+            inp = self.query_one(selector, Input)
+            val = inp.value.strip()
             if val:
                 try:
-                    validate_percent(val)
+                    inp.value = validate_percent(val)
                 except ValueError as e:
                     errors.append(str(e))
 
