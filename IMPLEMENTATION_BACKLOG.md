@@ -112,7 +112,7 @@ Acceptance criteria:
 Dependencies:
 - P0-03 recommended first (shared HTTP behavior).
 
-### P0-06 - Record failed/draft emissions in registry
+### ~~P0-06 - Record failed/draft emissions in registry~~ Done
 Problem:
 - `next_n_dps()` increments the sequence atomically in `prepare()`, but if `submit()` fails afterward, the sequence number is burned with no record. This creates audit gaps that are invisible to the user and difficult to explain to fiscal authorities.
 
@@ -286,7 +286,7 @@ Acceptance criteria:
 
 1. ~~P0-01 (response contract — prevents silent fiscal errors)~~ Done
 2. ~~P0-04 (registry backup — quick win, protects data before other changes)~~ Done
-3. P0-06 (draft entries — complements P0-01, closes audit gaps)
+3. ~~P0-06 (draft entries — complements P0-01, closes audit gaps)~~ Done
 4. ~~P0-02 (input validation — first pass on XML-critical fields)~~ Done
 5. ~~P0-03 (HTTP resilience — ADN-only retries first, then SEFIN connection-level)~~ Done
 6. P0-05 (SEFIN preflight — builds on P0-03)
