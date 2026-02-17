@@ -7,15 +7,20 @@ file to remember every invoice emitted through the CLI (or manually imported).
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from filelock import FileLock
 
 from emissor import config as _config
+
+logger = logging.getLogger(__name__)
 
 
 def _registry_path() -> Path:
@@ -24,6 +29,15 @@ def _registry_path() -> Path:
 
 def _sync_state_path() -> Path:
     return _config.get_data_dir() / "sync_state.json"
+
+
+def _backup_corrupt(path: Path) -> Path:
+    """Rename a corrupt file to a timestamped backup before it gets overwritten."""
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
+    backup = path.with_name(f"{path.name}.corrupt.{ts}")
+    path.rename(backup)
+    logger.warning("Corrupt file backed up: %s → %s", path, backup)
+    return backup
 
 
 @contextmanager
@@ -43,6 +57,7 @@ def _load() -> list[dict[str, Any]]:
     try:
         return json.loads(rp.read_text())
     except (json.JSONDecodeError, ValueError):
+        _backup_corrupt(rp)
         return []
 
 
@@ -193,6 +208,7 @@ def get_last_nsu(env: str) -> int:
             data = json.loads(sp.read_text())
             return int(data.get(env, 0))
         except (json.JSONDecodeError, ValueError, TypeError):
+            _backup_corrupt(sp)
             return 0
 
 
@@ -206,8 +222,65 @@ def set_last_nsu(env: str, nsu: int) -> None:
             try:
                 data = json.loads(sp.read_text())
             except (json.JSONDecodeError, ValueError):
+                _backup_corrupt(sp)
                 data = {}
         data[env] = nsu
         tmp = sp.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, indent=2) + "\n")
         os.replace(tmp, sp)
+
+
+# --- Health check (read-only, no locks) ---
+
+
+@dataclass
+class RegistryHealth:
+    registry_ok: bool
+    registry_count: int
+    registry_corrupt_backups: list[str] = field(default_factory=list)
+    sync_state_ok: bool = True
+    sync_state_corrupt_backups: list[str] = field(default_factory=list)
+
+
+def check_registry_health() -> RegistryHealth:
+    """Probe registry and sync-state files for corruption (read-only)."""
+    rp = _registry_path()
+    sp = _sync_state_path()
+
+    # Registry file
+    registry_ok = True
+    registry_count = 0
+    if rp.exists():
+        try:
+            entries = json.loads(rp.read_text())
+            registry_count = len(entries)
+        except (json.JSONDecodeError, ValueError):
+            registry_ok = False
+    if rp.parent.exists():
+        registry_backups = sorted(
+            str(p.name) for p in rp.parent.glob(f"{rp.name}.corrupt.*")
+        )
+    else:
+        registry_backups = []
+
+    # Sync state file
+    sync_ok = True
+    if sp.exists():
+        try:
+            json.loads(sp.read_text())
+        except (json.JSONDecodeError, ValueError):
+            sync_ok = False
+    if sp.parent.exists():
+        sync_backups = sorted(
+            str(p.name) for p in sp.parent.glob(f"{sp.name}.corrupt.*")
+        )
+    else:
+        sync_backups = []
+
+    return RegistryHealth(
+        registry_ok=registry_ok,
+        registry_count=registry_count,
+        registry_corrupt_backups=registry_backups,
+        sync_state_ok=sync_ok,
+        sync_state_corrupt_backups=sync_backups,
+    )
