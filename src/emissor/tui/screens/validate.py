@@ -100,6 +100,26 @@ class ValidateScreen(ModalScreen):
         else:
             lines.append("[red]ERRO[/red] Conectividade ADN: certificado não configurado")
 
+        # Registry health
+        try:
+            from emissor.utils.registry import check_registry_health
+
+            health = check_registry_health()
+            if health.registry_ok:
+                lines.append(
+                    f"[green]OK[/green] Registro local: {health.registry_count} nota(s)"
+                )
+            else:
+                lines.append("[red]ERRO[/red] Registro local: arquivo corrompido")
+            for b in health.registry_corrupt_backups:
+                lines.append(f"[yellow]AVISO[/yellow] Backup encontrado: {b}")
+            if not health.sync_state_ok:
+                lines.append("[red]ERRO[/red] Estado de sincronização: arquivo corrompido")
+            for b in health.sync_state_corrupt_backups:
+                lines.append(f"[yellow]AVISO[/yellow] Backup sync: {b}")
+        except Exception as e:
+            lines.append(f"[red]ERRO[/red] Registro local: {e}")
+
         self.app.call_from_thread(self._display_lines, lines)
 
     def _display_lines(self, lines: list[str]) -> None:
