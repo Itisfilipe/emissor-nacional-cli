@@ -8,7 +8,8 @@ from typing import Any
 from lxml import etree
 from requests_pkcs12 import get
 
-from emissor.config import ENDPOINTS, NFSE_NS
+from emissor.config import ADN_TIMEOUT, ENDPOINTS, NFSE_NS
+from emissor.services.http_retry import ADN_READ, RetryableHTTPError, retry_call
 
 _NFSE_XPATH_NS = {"n": NFSE_NS}
 
@@ -16,6 +17,10 @@ _NFSE_XPATH_NS = {"n": NFSE_NS}
 def _check_response(resp: Any, action: str) -> None:
     if not resp.ok:
         body = resp.text[:500] if resp.text else ""
+        if resp.status_code in ADN_READ.retryable_status_codes:
+            raise RetryableHTTPError(
+                f"ADN {action} error ({resp.status_code}): {body}"
+            )
         raise RuntimeError(f"ADN {action} error ({resp.status_code}): {body}")
 
 
@@ -54,16 +59,18 @@ def _fetch_dfe_page(
     base = ENDPOINTS[env]["adn"]
     url = f"{base}/contribuintes/DFe/{nsu}"
 
-    resp = get(
-        url,
-        pkcs12_filename=pfx_path,
-        pkcs12_password=pfx_password,
-        timeout=30,
-    )
-    if resp.status_code == 404:
+    def _do_get():
+        resp = get(
+            url,
+            pkcs12_filename=pfx_path,
+            pkcs12_password=pfx_password,
+            timeout=ADN_TIMEOUT,
+        )
+        if resp.status_code != 404:
+            _check_response(resp, "list_dfe")
         return resp.json()
-    _check_response(resp, "list_dfe")
-    return resp.json()
+
+    return retry_call(_do_get, ADN_READ)
 
 
 def iter_dfe(
@@ -145,11 +152,14 @@ def download_danfse(
     base = ENDPOINTS[env]["adn"]
     url = f"{base}/danfse/{chave_acesso}"
 
-    resp = get(
-        url,
-        pkcs12_filename=pfx_path,
-        pkcs12_password=pfx_password,
-        timeout=30,
-    )
-    _check_response(resp, "download")
-    return resp.content
+    def _do_get():
+        resp = get(
+            url,
+            pkcs12_filename=pfx_path,
+            pkcs12_password=pfx_password,
+            timeout=ADN_TIMEOUT,
+        )
+        _check_response(resp, "download")
+        return resp.content
+
+    return retry_call(_do_get, ADN_READ)

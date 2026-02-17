@@ -5,8 +5,9 @@ import logging
 
 from requests_pkcs12 import post
 
-from emissor.config import ENDPOINTS
+from emissor.config import ENDPOINTS, SEFIN_TIMEOUT
 from emissor.services.exceptions import SefinRejectError
+from emissor.services.http_retry import SEFIN_SUBMIT, retry_call
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +76,16 @@ def emit_nfse(
     url = ENDPOINTS[env]["sefin"]
     payload = {"dpsXmlGZipB64": dps_b64}
 
-    resp = post(
-        url,
-        json=payload,
-        pkcs12_filename=pfx_path,
-        pkcs12_password=pfx_password,
-        timeout=60,
-    )
+    def _do_post():
+        return post(
+            url,
+            json=payload,
+            pkcs12_filename=pfx_path,
+            pkcs12_password=pfx_password,
+            timeout=SEFIN_TIMEOUT,
+        )
+
+    resp = retry_call(_do_post, SEFIN_SUBMIT)
 
     if not resp.ok:
         body = resp.text[:500] if resp.text else ""
