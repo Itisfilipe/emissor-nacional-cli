@@ -100,6 +100,18 @@ class ValidateScreen(ModalScreen):
         else:
             lines.append("[red]ERRO[/red] Conectividade ADN: certificado não configurado")
 
+        # SEFIN connectivity
+        if pfx_path and pfx_password:
+            try:
+                from emissor.services.sefin_client import check_sefin_connectivity
+
+                check_sefin_connectivity(pfx_path, pfx_password, env)
+                lines.append(f"[green]OK[/green] Conectividade SEFIN ({env})")
+            except Exception as e:
+                lines.append(f"[red]ERRO[/red] Conectividade SEFIN: {e}")
+        else:
+            lines.append("[red]ERRO[/red] Conectividade SEFIN: certificado não configurado")
+
         # Registry health
         try:
             from emissor.utils.registry import check_registry_health
