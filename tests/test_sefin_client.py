@@ -7,7 +7,7 @@ import pytest
 import requests.exceptions
 
 from emissor.services.exceptions import SefinRejectError
-from emissor.services.sefin_client import emit_nfse
+from emissor.services.sefin_client import check_sefin_connectivity, emit_nfse
 
 _VALID_RESPONSE = {"chNFSe": "test"}
 
@@ -177,3 +177,24 @@ class TestEmitNfseRetry:
         result = emit_nfse("b64", "/cert.pfx", "pass")
         assert result["chNFSe"] == "abc123"
         assert mock_post.call_count == 2
+
+
+class TestCheckSefinConnectivity:
+    @patch("emissor.services.sefin_client.get")
+    def test_success_on_405(self, mock_get):
+        """A 405 Method Not Allowed still proves connectivity — no exception."""
+        mock_get.return_value = _mock_response(ok=False, status_code=405)
+        check_sefin_connectivity("/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.get")
+    def test_connection_error_propagates(self, mock_get):
+        """ConnectionError should propagate after retries exhausted."""
+        mock_get.side_effect = requests.exceptions.ConnectionError("refused")
+        with pytest.raises(requests.exceptions.ConnectionError):
+            check_sefin_connectivity("/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.get")
+    def test_accepts_any_http_status(self, mock_get):
+        """Any HTTP response (even 500) means the endpoint is reachable."""
+        mock_get.return_value = _mock_response(ok=False, status_code=500)
+        check_sefin_connectivity("/cert.pfx", "pass")
