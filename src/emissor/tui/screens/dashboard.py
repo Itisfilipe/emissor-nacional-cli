@@ -158,6 +158,7 @@ class DashboardScreen(Screen):
         self._scan_invoices()
         self.query_one("#recent-table", DataTable).focus()
         self._auto_sync()
+        self._check_registry()
 
     def on_key(self, event: Key) -> None:
         table = self.query_one("#recent-table", DataTable)
@@ -547,6 +548,23 @@ class DashboardScreen(Screen):
             self.notify, "Sincronizando notas do servidor…", severity="information", timeout=3
         )
         self._do_sync()
+
+    @work(thread=True)
+    def _check_registry(self) -> None:
+        """Check registry health on startup and warn if corruption was detected."""
+        from emissor.utils.registry import check_registry_health
+
+        try:
+            health = check_registry_health()
+        except Exception:
+            return
+        if health.registry_corrupt_backups or health.sync_state_corrupt_backups:
+            self.app.call_from_thread(
+                self.notify,
+                "Corrupção detectada no registro local — veja Validar (v) para detalhes",
+                severity="warning",
+                timeout=10,
+            )
 
     def action_sync(self) -> None:
         self.notify("Sincronizando notas do servidor…", severity="information", timeout=3)
