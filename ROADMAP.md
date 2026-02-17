@@ -12,13 +12,11 @@ A base de segurança para produção está completa — validação de contrato 
 
 ## Planejado
 
-- [ ] **Segurança de certificado (fase 1)** — alertar sobre arquivos PFX com permissões abertas na tela de Validação, documentar boas práticas para senhas de certificado via variáveis de ambiente.
-
 - [ ] **Subcomandos CLI não interativos** — adicionar comandos `emit`, `sync`, `query`, `download-pdf`, `validate` e `list` com modo de saída `--json`, permitindo uso em scripts e CI sem a TUI.
 
 - [ ] **Ciclo de vida de notas** — pesquisar suporte da API SEFIN/ADN para operações de cancelamento/substituição (varia por município), depois implementar os fluxos suportados com rastreamento de status no registro local.
 
-- [ ] **Segurança de certificado (fase 2)** — provedores de segredos opcionais (keychain do SO, 1Password CLI, Vault) como alternativas a variáveis de ambiente. Diagnósticos estendidos de certificado (cadeia de confiança, verificação de revogação).
+- [ ] **Segurança de certificado (fase 2)** — provedores de segredos adicionais (1Password CLI, Vault) como alternativas. Diagnósticos estendidos de certificado (cadeia de confiança, verificação de revogação).
 
 ## Futuro
 

@@ -55,14 +55,27 @@ uv sync
 
 ### 1. Certificado digital
 
-Defina as variáveis de ambiente no seu shell (ex: `~/.bashrc`, `~/.zshrc`):
+O comando `init` oferece configuração interativa do certificado:
+
+```bash
+emissor-nacional init
+# → Pergunta caminho do .pfx, valida, e oferece opções de armazenamento da senha
+```
+
+**Opções de armazenamento da senha (ordem de prioridade):**
+
+1. **Variável de ambiente** `CERT_PFX_PASSWORD` — via shell (`~/.bashrc`) ou `.env`
+2. **Keychain do sistema** — oferecido automaticamente durante `init`
+3. **Manual** — definir a cada sessão
+
+O `.env` pode estar no diretório de trabalho ou no diretório de configuração (ambos são carregados automaticamente; o cwd tem prioridade).
+
+**Alternativa manual** (sem `init`):
 
 ```bash
 export CERT_PFX_PATH=/caminho/para/certificado.pfx
 export CERT_PFX_PASSWORD=sua-senha
 ```
-
-Ou crie um arquivo `.env` no diretório de onde você executa o `emissor-nacional`.
 
 ### 2. Dados do emitente
 
