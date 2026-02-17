@@ -258,6 +258,7 @@ class DashboardScreen(Screen):
                     "tipo": entry.get("status", "emitida"),
                     "client": entry.get("client", ""),
                     "valor": entry.get("valor_brl", ""),
+                    "error": entry.get("error", ""),
                 }
             )
 
@@ -285,6 +286,7 @@ class DashboardScreen(Screen):
                         "tipo": "rascunho" if f.stem.startswith("dry_run") else "emitida",
                         "client": "",
                         "valor": "",
+                        "error": "",
                     }
                 )
 
@@ -367,7 +369,7 @@ class DashboardScreen(Screen):
     def _populate_table(self, invoices: list[dict]) -> None:
         table = self.query_one("#recent-table", DataTable)
         table.clear(columns=True)
-        table.add_columns("Data", "Tipo", "Cliente/Emitente", "Valor", "Chave")
+        table.add_columns("Data", "Tipo", "Cliente/Emitente", "Valor", "Chave", "Erro")
 
         status_styles = {
             "emitida": "[green]emitida[/green]",
@@ -381,12 +383,15 @@ class DashboardScreen(Screen):
             status = status_styles.get(inv["tipo"], inv["tipo"])
             stem = inv["stem"]
             chave_display = stem[:20] + "\u2026" if len(stem) > 20 else stem
+            error = inv.get("error", "")
+            error_display = error[:60] + "\u2026" if len(error) > 60 else error
             table.add_row(
                 inv["date_str"],
                 status,
                 inv.get("client", ""),
                 inv.get("valor", ""),
                 chave_display,
+                f"[red]{error_display}[/red]" if error_display else "",
                 key=stem,
             )
 
