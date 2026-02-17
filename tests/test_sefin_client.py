@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,7 +8,7 @@ import requests.exceptions
 from emissor.services.exceptions import SefinRejectError
 from emissor.services.sefin_client import check_sefin_connectivity, emit_nfse
 
-_VALID_RESPONSE = {"chNFSe": "test"}
+_VALID_RESPONSE = {"chNFSe": "test", "nNFSe": "1", "cStat": "100"}
 
 
 def _mock_response(ok: bool = True, status_code: int = 200, json_data=None, text: str = ""):
@@ -24,9 +23,11 @@ def _mock_response(ok: bool = True, status_code: int = 200, json_data=None, text
 class TestEmitNfse:
     @patch("emissor.services.sefin_client.post")
     def test_success(self, mock_post):
-        mock_post.return_value = _mock_response(json_data={"chNFSe": "abc123"})
+        mock_post.return_value = _mock_response(
+            json_data={"chNFSe": "abc123", "nNFSe": "1", "cStat": "100"}
+        )
         result = emit_nfse("b64data", "/cert.pfx", "pass")
-        assert result == {"chNFSe": "abc123"}
+        assert result["chNFSe"] == "abc123"
 
     @patch("emissor.services.sefin_client.post")
     def test_correct_payload(self, mock_post):
@@ -77,13 +78,17 @@ class TestEmitNfse:
 
     @patch("emissor.services.sefin_client.post")
     def test_missing_ch_nfse_raises_reject(self, mock_post):
-        mock_post.return_value = _mock_response(json_data={"nNFSe": "42"})
+        mock_post.return_value = _mock_response(
+            json_data={"nNFSe": "42", "cStat": "100"}
+        )
         with pytest.raises(SefinRejectError, match="chNFSe"):
             emit_nfse("b64", "/cert.pfx", "pass")
 
     @patch("emissor.services.sefin_client.post")
     def test_blank_ch_nfse_raises_reject(self, mock_post):
-        mock_post.return_value = _mock_response(json_data={"chNFSe": ""})
+        mock_post.return_value = _mock_response(
+            json_data={"chNFSe": "", "cStat": "100"}
+        )
         with pytest.raises(SefinRejectError, match="chNFSe"):
             emit_nfse("b64", "/cert.pfx", "pass")
 
@@ -126,17 +131,25 @@ class TestEmitNfse:
         assert exc_info.value.response == payload
 
     @patch("emissor.services.sefin_client.post")
-    def test_missing_n_nfse_warns(self, mock_post, caplog):
-        mock_post.return_value = _mock_response(json_data={"chNFSe": "abc123"})
-        with caplog.at_level(logging.WARNING):
-            result = emit_nfse("b64", "/cert.pfx", "pass")
-        assert result["chNFSe"] == "abc123"
-        assert "nNFSe" in caplog.text
+    def test_missing_n_nfse_raises_reject(self, mock_post):
+        mock_post.return_value = _mock_response(
+            json_data={"chNFSe": "abc123", "cStat": "100"}
+        )
+        with pytest.raises(SefinRejectError, match="nNFSe"):
+            emit_nfse("b64", "/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.post")
+    def test_missing_cstat_raises_reject(self, mock_post):
+        mock_post.return_value = _mock_response(
+            json_data={"chNFSe": "abc123", "nNFSe": "1"}
+        )
+        with pytest.raises(SefinRejectError, match="cStat"):
+            emit_nfse("b64", "/cert.pfx", "pass")
 
     @patch("emissor.services.sefin_client.post")
     def test_empty_response_raises_reject(self, mock_post):
         mock_post.return_value = _mock_response(json_data={})
-        with pytest.raises(SefinRejectError, match="chNFSe"):
+        with pytest.raises(SefinRejectError, match="cStat"):
             emit_nfse("b64", "/cert.pfx", "pass")
 
 
@@ -145,7 +158,7 @@ class TestEmitNfseRetry:
     def test_retries_connection_error_then_succeeds(self, mock_post):
         mock_post.side_effect = [
             requests.exceptions.ConnectionError("reset"),
-            _mock_response(json_data={"chNFSe": "abc123"}),
+            _mock_response(json_data={"chNFSe": "abc123", "nNFSe": "1", "cStat": "100"}),
         ]
         result = emit_nfse("b64", "/cert.pfx", "pass")
         assert result["chNFSe"] == "abc123"
@@ -172,7 +185,7 @@ class TestEmitNfseRetry:
         """ConnectTimeout inherits from ConnectionError — safe to retry."""
         mock_post.side_effect = [
             requests.exceptions.ConnectTimeout("connect timed out"),
-            _mock_response(json_data={"chNFSe": "abc123"}),
+            _mock_response(json_data={"chNFSe": "abc123", "nNFSe": "1", "cStat": "100"}),
         ]
         result = emit_nfse("b64", "/cert.pfx", "pass")
         assert result["chNFSe"] == "abc123"

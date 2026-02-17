@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import json
-import logging
 
 from requests_pkcs12 import get, post
 
 from emissor.config import ENDPOINTS, SEFIN_TIMEOUT
 from emissor.services.exceptions import SefinRejectError
 from emissor.services.http_retry import SEFIN_SUBMIT, retry_call
-
-logger = logging.getLogger(__name__)
 
 
 def _format_erros(erros: object) -> str:
@@ -42,7 +39,9 @@ def _check_error_payload(data: dict) -> None:
         raise SefinRejectError(str(mensagem), response=data)
 
     c_stat = data.get("cStat")
-    if c_stat is not None and str(c_stat) not in ("100", "150"):
+    if c_stat is None:
+        raise SefinRejectError("Resposta sem código de status (cStat)", response=data)
+    if str(c_stat) not in ("100", "150"):
         motivo = data.get("xMotivo", "Código de status rejeitado")
         raise SefinRejectError(f"cStat {c_stat}: {motivo}", response=data)
 
@@ -60,7 +59,10 @@ def _validate_response(data: dict) -> None:
         )
 
     if not data.get("nNFSe"):
-        logger.warning("Resposta sem nNFSe — usando chNFSe como identificador")
+        raise SefinRejectError(
+            "Resposta sem número da NFS-e (nNFSe)",
+            response=data,
+        )
 
 
 def emit_nfse(
