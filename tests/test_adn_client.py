@@ -5,6 +5,7 @@ import gzip
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+import requests.exceptions
 
 from emissor.services.adn_client import (
     _check_response,
@@ -186,3 +187,73 @@ class TestCheckResponse:
     def test_ok(self):
         resp = _mock_response(ok=True)
         _check_response(resp, "test")  # should not raise
+
+    def test_retryable_status_raises_retryable_error(self):
+        from emissor.services.http_retry import RetryableHTTPError
+
+        resp = _mock_response(ok=False, status_code=503, text="Service Unavailable")
+        with pytest.raises(RetryableHTTPError, match="503"):
+            _check_response(resp, "test")
+
+    def test_non_retryable_status_raises_runtime_error(self):
+        resp = _mock_response(ok=False, status_code=400, text="Bad Request")
+        with pytest.raises(RuntimeError, match="400"):
+            _check_response(resp, "test")
+
+
+class TestAdnRetry:
+    @patch("emissor.services.adn_client.get")
+    def test_fetch_page_retries_connection_error(self, mock_get):
+        mock_get.side_effect = [
+            requests.exceptions.ConnectionError("reset"),
+            _mock_response(json_data={"LoteDFe": []}),
+        ]
+        result = _fetch_dfe_page("/cert.pfx", "pass", 0, "homologacao")
+        assert result == {"LoteDFe": []}
+        assert mock_get.call_count == 2
+
+    @patch("emissor.services.adn_client.get")
+    def test_fetch_page_retries_503(self, mock_get):
+        mock_get.side_effect = [
+            _mock_response(ok=False, status_code=503, text="Unavailable"),
+            _mock_response(json_data={"LoteDFe": [_make_doc("a", 1)]}),
+        ]
+        result = _fetch_dfe_page("/cert.pfx", "pass", 0, "homologacao")
+        assert len(result["LoteDFe"]) == 1
+        assert mock_get.call_count == 2
+
+    @patch("emissor.services.adn_client.get")
+    def test_fetch_page_retries_429(self, mock_get):
+        mock_get.side_effect = [
+            _mock_response(ok=False, status_code=429, text="Rate limited"),
+            _mock_response(json_data={"LoteDFe": []}),
+        ]
+        result = _fetch_dfe_page("/cert.pfx", "pass", 0, "homologacao")
+        assert result == {"LoteDFe": []}
+        assert mock_get.call_count == 2
+
+    @patch("emissor.services.adn_client.get")
+    def test_fetch_page_does_not_retry_400(self, mock_get):
+        mock_get.return_value = _mock_response(ok=False, status_code=400, text="Bad Request")
+        with pytest.raises(RuntimeError, match="400"):
+            _fetch_dfe_page("/cert.pfx", "pass", 0, "homologacao")
+        assert mock_get.call_count == 1
+
+    @patch("emissor.services.adn_client.get")
+    def test_fetch_page_404_not_retried(self, mock_get):
+        mock_get.return_value = _mock_response(
+            ok=False, status_code=404, json_data={"LoteDFe": []}
+        )
+        result = _fetch_dfe_page("/cert.pfx", "pass", 0, "homologacao")
+        assert result == {"LoteDFe": []}
+        assert mock_get.call_count == 1
+
+    @patch("emissor.services.adn_client.get")
+    def test_download_retries_connection_error(self, mock_get):
+        mock_get.side_effect = [
+            requests.exceptions.ConnectionError("reset"),
+            _mock_response(content=b"%PDF"),
+        ]
+        result = download_danfse("key123", "/cert.pfx", "pass")
+        assert result == b"%PDF"
+        assert mock_get.call_count == 2

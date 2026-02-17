@@ -57,6 +57,9 @@ ENDPOINTS = {
 
 TP_AMB = {"homologacao": "2", "producao": "1"}
 
+SEFIN_TIMEOUT = 60
+ADN_TIMEOUT = 30
+
 
 def get_cert_path() -> str:
     """Return the path to the .pfx certificate from CERT_PFX_PATH env var.

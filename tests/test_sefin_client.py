@@ -4,6 +4,7 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests.exceptions
 
 from emissor.services.exceptions import SefinRejectError
 from emissor.services.sefin_client import emit_nfse
@@ -137,3 +138,42 @@ class TestEmitNfse:
         mock_post.return_value = _mock_response(json_data={})
         with pytest.raises(SefinRejectError, match="chNFSe"):
             emit_nfse("b64", "/cert.pfx", "pass")
+
+
+class TestEmitNfseRetry:
+    @patch("emissor.services.sefin_client.post")
+    def test_retries_connection_error_then_succeeds(self, mock_post):
+        mock_post.side_effect = [
+            requests.exceptions.ConnectionError("reset"),
+            _mock_response(json_data={"chNFSe": "abc123"}),
+        ]
+        result = emit_nfse("b64", "/cert.pfx", "pass")
+        assert result["chNFSe"] == "abc123"
+        assert mock_post.call_count == 2
+
+    @patch("emissor.services.sefin_client.post")
+    def test_does_not_retry_http_500(self, mock_post):
+        """An HTTP response (even 500) means server received request — no retry."""
+        mock_post.return_value = _mock_response(ok=False, status_code=500, text="Error")
+        with pytest.raises(RuntimeError, match="SEFIN API error"):
+            emit_nfse("b64", "/cert.pfx", "pass")
+        assert mock_post.call_count == 1
+
+    @patch("emissor.services.sefin_client.post")
+    def test_does_not_retry_read_timeout(self, mock_post):
+        """ReadTimeout is ambiguous — server may have received request."""
+        mock_post.side_effect = requests.exceptions.ReadTimeout("read timed out")
+        with pytest.raises(requests.exceptions.ReadTimeout):
+            emit_nfse("b64", "/cert.pfx", "pass")
+        assert mock_post.call_count == 1
+
+    @patch("emissor.services.sefin_client.post")
+    def test_retries_connect_timeout(self, mock_post):
+        """ConnectTimeout inherits from ConnectionError — safe to retry."""
+        mock_post.side_effect = [
+            requests.exceptions.ConnectTimeout("connect timed out"),
+            _mock_response(json_data={"chNFSe": "abc123"}),
+        ]
+        result = emit_nfse("b64", "/cert.pfx", "pass")
+        assert result["chNFSe"] == "abc123"
+        assert mock_post.call_count == 2
