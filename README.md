@@ -55,12 +55,14 @@ uv sync
 
 ### 1. Certificado digital
 
-Crie um arquivo `.env` na raiz do projeto (ou defina as variáveis de ambiente):
+Defina as variáveis de ambiente no seu shell (ex: `~/.bashrc`, `~/.zshrc`):
 
-```env
-CERT_PFX_PATH=/caminho/para/certificado.pfx
-CERT_PFX_PASSWORD=sua-senha
+```bash
+export CERT_PFX_PATH=/caminho/para/certificado.pfx
+export CERT_PFX_PASSWORD=sua-senha
 ```
+
+Ou crie um arquivo `.env` no diretório de onde você executa o `emissor-nacional`.
 
 ### 2. Dados do emitente
 
