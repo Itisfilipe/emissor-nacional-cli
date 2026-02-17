@@ -5,6 +5,8 @@ import pytest
 from emissor.tui.app import EmissorApp
 from emissor.tui.screens.query import QueryScreen
 
+_VALID_CHAVE = "A" * 50
+
 
 @pytest.mark.asyncio
 async def test_query_screen_opens(mock_config):
@@ -60,18 +62,18 @@ async def test_query_success(mock_config):
 
     from textual.widgets import Button, RichLog
 
-    mock_result = {"chave": "NFSe_test_abc", "n_nfse": "99", "valor": "5000.00"}
+    mock_result = {"chave": _VALID_CHAVE, "n_nfse": "99", "valor": "5000.00"}
 
     with (
         patch("emissor.services.adn_client.query_nfse", return_value=mock_result),
         patch(
             "emissor.utils.registry.find_invoice",
-            return_value={"nsu": 10, "chave": "NFSe_test_abc"},
+            return_value={"nsu": 10, "chave": _VALID_CHAVE},
         ),
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
-            app.push_screen(QueryScreen(chave="NFSe_test_abc"))
+            app.push_screen(QueryScreen(chave=_VALID_CHAVE))
             await pilot.pause()
 
             app.screen.query_one("#btn-consultar", Button).press()
@@ -81,7 +83,7 @@ async def test_query_success(mock_config):
             log = app.screen.query_one("#query-result", RichLog)
             lines = [str(line) for line in log.lines]
             text = "\n".join(lines)
-            assert "NFSe_test_abc" in text
+            assert _VALID_CHAVE in text
 
 
 @pytest.mark.asyncio
@@ -97,7 +99,7 @@ async def test_query_error(mock_config):
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
-            app.push_screen(QueryScreen(chave="NFSe_unknown"))
+            app.push_screen(QueryScreen(chave=_VALID_CHAVE))
             await pilot.pause()
 
             app.screen.query_one("#btn-consultar", Button).press()
@@ -121,7 +123,7 @@ async def test_query_input_submitted(mock_config):
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
-            app.push_screen(QueryScreen(chave="NFSe_enter_test"))
+            app.push_screen(QueryScreen(chave=_VALID_CHAVE))
             await pilot.pause()
 
             inp = app.screen.query_one("#chave-input", Input)

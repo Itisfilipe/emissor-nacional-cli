@@ -80,11 +80,18 @@ class DownloadPdfScreen(ModalScreen):
                 self.app.pop_screen()
 
     def _do_download(self) -> None:
+        from emissor.utils.validators import validate_access_key
+
         chave = self.query_one("#chave-input", Input).value.strip()
         output = self.query_one("#output-input", Input).value.strip()
 
         if not chave:
             self.query_one("#error-label", Label).update("Informe a chave de acesso")
+            return
+        try:
+            validate_access_key(chave)
+        except ValueError as e:
+            self.query_one("#error-label", Label).update(str(e))
             return
         if not output:
             output = f"{chave}.pdf"

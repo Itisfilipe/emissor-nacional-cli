@@ -5,6 +5,8 @@ import pytest
 from emissor.tui.app import EmissorApp
 from emissor.tui.screens.download_pdf import DownloadPdfScreen, _unique_path
 
+_VALID_CHAVE = "A" * 50
+
 
 @pytest.mark.asyncio
 async def test_download_pdf_screen_opens(mock_config):
@@ -80,7 +82,7 @@ async def test_download_success(mock_config, tmp_path):
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
-            app.push_screen(DownloadPdfScreen(chave="NFSe_dl_test"))
+            app.push_screen(DownloadPdfScreen(chave=_VALID_CHAVE))
             await pilot.pause()
 
             app.screen.query_one("#output-input", Input).value = output_path
@@ -111,7 +113,7 @@ async def test_download_error(mock_config):
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
-            app.push_screen(DownloadPdfScreen(chave="NFSe_err_test"))
+            app.push_screen(DownloadPdfScreen(chave=_VALID_CHAVE))
             await pilot.pause()
 
             app.screen.query_one("#btn-baixar", Button).press()
@@ -159,7 +161,7 @@ async def test_download_empty_output_uses_chave(mock_config, tmp_path):
 
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
-            app.push_screen(DownloadPdfScreen(chave="NFSe_auto_name"))
+            app.push_screen(DownloadPdfScreen(chave=_VALID_CHAVE))
             await pilot.pause()
 
             # Clear the output field so it uses default
@@ -182,7 +184,7 @@ async def test_download_input_submitted(mock_config):
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
-            app.push_screen(DownloadPdfScreen(chave="NFSe_enter"))
+            app.push_screen(DownloadPdfScreen(chave=_VALID_CHAVE))
             await pilot.pause()
 
             inp = app.screen.query_one("#chave-input", Input)
