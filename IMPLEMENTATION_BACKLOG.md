@@ -39,7 +39,7 @@ Acceptance criteria:
 Dependencies:
 - None.
 
-### P0-02 - Harden fiscal input validation
+### P0-02 - Harden fiscal input validation ✅
 Problem:
 - Several fields accept free-form values that should be strongly validated.
 
@@ -58,7 +58,7 @@ Dependencies:
 
 Note: Scope is broad — recommended to split into two passes (XML-critical fields first, cosmetic fields second) to avoid blocking other P0 work.
 
-### P0-03 - Add resilient HTTP layer (retry/backoff/timeouts)
+### P0-03 - Add resilient HTTP layer (retry/backoff/timeouts) ✅
 Problem:
 - API calls use single-attempt requests; transient failures degrade reliability.
 
@@ -287,8 +287,8 @@ Acceptance criteria:
 1. ~~P0-01 (response contract — prevents silent fiscal errors)~~ Done
 2. P0-04 (registry backup — quick win, protects data before other changes)
 3. P0-06 (draft entries — complements P0-01, closes audit gaps)
-4. P0-02 (input validation — first pass on XML-critical fields)
-5. P0-03 (HTTP resilience — ADN-only retries first, then SEFIN connection-level)
+4. ~~P0-02 (input validation — first pass on XML-critical fields)~~ Done
+5. ~~P0-03 (HTTP resilience — ADN-only retries first, then SEFIN connection-level)~~ Done
 6. P0-05 (SEFIN preflight — builds on P0-03)
 7. P1-06 (auto-prefill TUI test — quick, closes testing gap)
 8. P1-03 (client/intermediary separation)
