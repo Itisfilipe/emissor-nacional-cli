@@ -13,6 +13,7 @@ class ValidateScreen(ModalScreen):
 
     BINDINGS = [
         Binding("escape", "go_back", "Voltar"),
+        Binding("q", "go_back", show=False),
     ]
 
     def compose(self) -> ComposeResult:

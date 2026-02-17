@@ -316,16 +316,32 @@ ModalScreen {
     overflow-y: auto;
 }
 
-/* New Invoice specifics */
-#modal-dialog #form-container {
+/* New Invoice wizard */
+#modal-dialog #step-indicator {
+    height: 1;
+    text-style: bold;
+    color: $primary;
+    margin-bottom: 1;
+}
+
+#modal-dialog #step-1-pessoas,
+#modal-dialog #step-2-servico,
+#modal-dialog #step-3-valores {
     height: 1fr;
     overflow-y: auto;
 }
 
-#modal-dialog #preview-container {
-    height: auto;
+#modal-dialog #step-4-revisao {
+    height: 1fr;
+    overflow-y: auto;
 }
 
 #modal-dialog #result-container {
     height: auto;
+}
+
+#modal-dialog #error-label-step2,
+#modal-dialog #error-label-step3 {
+    height: 1;
+    color: $error;
 }

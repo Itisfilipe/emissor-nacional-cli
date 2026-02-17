@@ -28,6 +28,7 @@ class DownloadPdfScreen(ModalScreen):
 
     BINDINGS = [
         Binding("escape", "go_back", "Voltar"),
+        Binding("q", "go_back", show=False),
     ]
 
     def __init__(self, chave: str = "") -> None:
@@ -44,15 +45,26 @@ class DownloadPdfScreen(ModalScreen):
                 value=self._initial_chave,
                 placeholder="Chave de acesso da NFS-e",
                 id="chave-input",
+                tooltip="Chave de acesso de 50 caracteres da NFS-e",
             )
             yield Label("Caminho de saída", classes="form-label")
             default_output = f"{self._initial_chave}.pdf" if self._initial_chave else ""
-            yield Input(value=default_output, placeholder="output.pdf", id="output-input")
+            yield Input(
+                value=default_output,
+                placeholder="output.pdf",
+                id="output-input",
+                tooltip="Caminho do arquivo PDF de saída",
+            )
             yield Label("", id="error-label")
             yield Label("", id="status-label")
             with Horizontal(classes="button-bar"):
                 yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
-                yield Button("\u2913 Baixar", id="btn-baixar", variant="primary")
+                yield Button(
+                    "\u2913 Baixar",
+                    id="btn-baixar",
+                    variant="primary",
+                    tooltip="Baixar DANFSE em PDF da API ADN",
+                )
 
     def on_mount(self) -> None:
         self.query_one("#chave-input", Input).focus()

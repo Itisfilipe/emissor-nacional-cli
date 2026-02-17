@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from textual.app import App
-from textual.binding import Binding
 
 
 class EmissorApp(App):
@@ -11,9 +10,7 @@ class EmissorApp(App):
     TITLE = "Emissor Nacional"
     ENABLE_COMMAND_PALETTE = False
 
-    BINDINGS = [
-        Binding("q", "quit", "Sair", priority=True),
-    ]
+    BINDINGS: list = []
 
     def __init__(self, env: str = "homologacao"):
         super().__init__()

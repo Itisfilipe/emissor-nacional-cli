@@ -48,7 +48,12 @@ class DashboardScreen(Screen):
             yield Static("Emissor Nacional CLI", id="app-title")
             env_class = "env-homol" if env == "homologacao" else "env-prod"
             env_label = "\u21c4 HOMOLOGAÇÃO" if env == "homologacao" else "\u21c4 PRODUÇÃO"
-            yield Button(env_label, id="env-badge", classes=env_class)
+            yield Button(
+                env_label,
+                id="env-badge",
+                classes=env_class,
+                tooltip="Alternar entre homologação e produção (e)",
+            )
 
         # Info cards row
         with Horizontal(id="info-bar"):
@@ -70,27 +75,68 @@ class DashboardScreen(Screen):
                 value="todas",
                 allow_blank=False,
                 id="filter-tipo",
+                tooltip="Filtrar por tipo: emitida, recebida ou todas",
             )
             yield Select(
                 [("Todos", "todos"), ("Hoje", "hoje"), ("Semana", "semana"), ("M\u00eas", "mes")],
                 value="todos",
                 allow_blank=False,
                 id="filter-preset",
+                tooltip="Período pré-definido: hoje, semana ou mês",
             )
             yield Static("De:", id="label-de")
-            yield MaskedInput(template="00/00/0000", id="filter-de")
+            yield MaskedInput(
+                template="00/00/0000",
+                id="filter-de",
+                tooltip="Data inicial do filtro (DD/MM/AAAA)",
+            )
             yield Static("Até:", id="label-ate")
-            yield MaskedInput(template="00/00/0000", id="filter-ate")
-            yield Button("\u25b7 Filtrar", id="btn-filtrar", variant="primary")
+            yield MaskedInput(
+                template="00/00/0000",
+                id="filter-ate",
+                tooltip="Data final do filtro (DD/MM/AAAA)",
+            )
+            yield Button(
+                "\u25b7 Filtrar",
+                id="btn-filtrar",
+                variant="primary",
+                tooltip="Aplicar filtros de data e tipo",
+            )
 
         # Action buttons row
         with Horizontal(id="action-bar"):
-            yield Button("+ Nova NFS-e", id="btn-new", variant="primary")
-            yield Button("\u21bb Clonar", id="btn-clone")
-            yield Button("\u25b6 Consultar", id="btn-query")
-            yield Button("\u21d3 Baixar PDF", id="btn-pdf")
-            yield Button("\u2398 Copiar", id="btn-copy")
-            yield Button("\u21c4 Sincronizar", id="btn-sync", variant="success")
+            yield Button(
+                "+ Nova NFS-e",
+                id="btn-new",
+                variant="primary",
+                tooltip="Emitir nova NFS-e (n)",
+            )
+            yield Button(
+                "\u21bb Clonar",
+                id="btn-clone",
+                tooltip="Clonar nota selecionada com dados pré-preenchidos (r)",
+            )
+            yield Button(
+                "\u25b6 Consultar",
+                id="btn-query",
+                tooltip="Consultar NFS-e por chave de acesso (c)",
+            )
+            yield Button(
+                "\u21d3 Baixar PDF",
+                id="btn-pdf",
+                tooltip="Baixar DANFSE em PDF (p)",
+            )
+            yield Button(
+                "\u2398 Copiar",
+                id="btn-copy",
+                tooltip="Copiar chave de acesso para a área de transferência (y)",
+            )
+            yield Button(
+                "\u21c4 Sincronizar",
+                id="btn-sync",
+                variant="success",
+                tooltip="Sincronizar notas do servidor ADN (s)",
+            )
 
         # DataTable
         yield DataTable(id="recent-table", cursor_type="row")

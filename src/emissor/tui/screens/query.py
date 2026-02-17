@@ -15,6 +15,7 @@ class QueryScreen(ModalScreen):
 
     BINDINGS = [
         Binding("escape", "go_back", "Voltar"),
+        Binding("q", "go_back", show=False),
     ]
 
     def __init__(self, chave: str = "") -> None:
@@ -31,12 +32,18 @@ class QueryScreen(ModalScreen):
                 value=self._initial_chave,
                 placeholder="Chave de acesso da NFS-e",
                 id="chave-input",
+                tooltip="Chave de acesso de 50 caracteres da NFS-e",
             )
             yield Label("", id="error-label")
             yield RichLog(id="query-result", wrap=True, markup=True)
             with Horizontal(classes="button-bar"):
                 yield Button("\u2715 Fechar", id="btn-voltar", variant="error")
-                yield Button("\u25b6 Consultar", id="btn-consultar", variant="primary")
+                yield Button(
+                    "\u25b6 Consultar",
+                    id="btn-consultar",
+                    variant="primary",
+                    tooltip="Consultar NFS-e na API ADN",
+                )
 
     def on_mount(self) -> None:
         self.query_one("#chave-input", Input).focus()
