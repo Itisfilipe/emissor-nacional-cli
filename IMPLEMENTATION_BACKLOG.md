@@ -76,7 +76,7 @@ Dependencies:
 
 Note: SEFIN submit is **not idempotent** — a retry on ambiguous failure could double-emit a fiscal document. Retries for submit must be limited to connection-level errors (DNS, TCP timeout) where no HTTP response was received. Any HTTP response (including 5xx) should be treated as non-retryable for submit. ADN operations (query, sync, download) are read-only and safe to retry freely.
 
-### P0-04 - Protect local registry/sync state against corruption
+### ~~P0-04 - Protect local registry/sync state against corruption~~ Done
 Problem:
 - Malformed JSON is silently reset to `[]` in `registry.py:_load()`, risking hidden loss of the entire invoice history with no user warning.
 
@@ -285,7 +285,7 @@ Acceptance criteria:
 ## Recommended Execution Order
 
 1. ~~P0-01 (response contract — prevents silent fiscal errors)~~ Done
-2. P0-04 (registry backup — quick win, protects data before other changes)
+2. ~~P0-04 (registry backup — quick win, protects data before other changes)~~ Done
 3. P0-06 (draft entries — complements P0-01, closes audit gaps)
 4. ~~P0-02 (input validation — first pass on XML-critical fields)~~ Done
 5. ~~P0-03 (HTTP resilience — ADN-only retries first, then SEFIN connection-level)~~ Done
