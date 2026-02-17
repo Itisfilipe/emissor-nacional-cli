@@ -1,33 +1,35 @@
 # Roadmap
 
-> TUI/CLI for issuing Brazilian NFS-e (electronic service invoices) via the national system.
+> TUI/CLI para emissão de NFS-e (Nota Fiscal de Serviços Eletrônica) via o sistema nacional (SEFIN/ADN).
 
-The production safety baseline is complete — response contract enforcement, fiscal input validation, HTTP resilience, registry integrity, and SEFIN preflight checks are all shipped. This roadmap tracks what comes next.
+A base de segurança para produção está completa — validação de contrato de resposta, validação de campos fiscais, resiliência HTTP, integridade do registro local e verificação prévia da SEFIN. Este roadmap acompanha o que vem a seguir.
 
-## Up next
+## Próximos passos
 
-- [ ] **Auto-prefill TUI test** — add integration test covering the full prefill flow in `NewInvoiceScreen` (select client -> fields populated from last invoice history), including the no-history edge case.
+- [ ] **Teste de auto-preenchimento na TUI** — adicionar teste de integração cobrindo o fluxo completo de preenchimento no `NewInvoiceScreen` (selecionar cliente → campos populados do último histórico de NFS-e), incluindo o caso sem histórico.
 
-- [ ] **Client/intermediary separation** — intermediaries currently share the `clients/` pool, so the intermediary selector shows all entries. Add a `kind` field to client YAML configs so selectors can filter correctly. Include a migration path for existing setups.
+- [ ] **Separação cliente/intermediário** — intermediários atualmente compartilham o pool de `clients/`, então o seletor de intermediários exibe todas as entradas. Adicionar um campo `kind` nos YAMLs de clientes para que os seletores filtrem corretamente. Incluir caminho de migração para configurações existentes.
 
-## Planned
+## Planejado
 
-- [ ] **Certificate security hardening (phase 1)** — warn on world-readable PFX files in the Validate screen, document env var best practices for certificate passwords.
+- [ ] **Segurança de certificado (fase 1)** — alertar sobre arquivos PFX com permissões abertas na tela de Validação, documentar boas práticas para senhas de certificado via variáveis de ambiente.
 
-- [ ] **Non-interactive CLI subcommands** — add `emit`, `sync`, `query`, `download-pdf`, `validate`, and `list` commands with `--json` output mode, enabling scripting and CI integration without the TUI.
+- [ ] **Subcomandos CLI não interativos** — adicionar comandos `emit`, `sync`, `query`, `download-pdf`, `validate` e `list` com modo de saída `--json`, permitindo uso em scripts e CI sem a TUI.
 
-- [ ] **Invoice lifecycle actions** — research SEFIN/ADN API support for cancel/substitute operations (varies by municipality), then implement supported workflows with status tracking in the local registry.
+- [ ] **Ciclo de vida de notas** — pesquisar suporte da API SEFIN/ADN para operações de cancelamento/substituição (varia por município), depois implementar os fluxos suportados com rastreamento de status no registro local.
 
-- [ ] **Certificate security hardening (phase 2)** — optional secret providers (OS keychain, 1Password CLI, Vault) as alternatives to env vars. Extended cert diagnostics (chain trust, revocation checks).
+- [ ] **Segurança de certificado (fase 2)** — provedores de segredos opcionais (keychain do SO, 1Password CLI, Vault) como alternativas a variáveis de ambiente. Diagnósticos estendidos de certificado (cadeia de confiança, verificação de revogação).
 
-## Future
+## Futuro
 
-- [ ] **Multi-emitter profiles** — support multiple emitter YAML configs with UI/CLI switching and isolated sequence/registry per emitter. Only pursue if there's a concrete multi-CNPJ need.
+- [ ] **Perfis multi-emitente** — suportar múltiplos YAMLs de emitente com alternância na UI/CLI e sequência/registro isolados por emitente. Apenas se houver necessidade concreta de múltiplos CNPJs.
 
-- [ ] **Sync UX and observability** — progress indicators during sync, post-sync summary (created/updated/skipped/error counts), last-sync widget in dashboard.
+- [ ] **UX e observabilidade de sincronização** — indicadores de progresso durante sync, resumo pós-sync (contadores de criado/atualizado/ignorado/erro), widget de último sync no dashboard.
 
-- [ ] **Reporting and export** — CSV/JSON export of filtered invoice table rows, basic monthly summaries by status/client/value.
+- [ ] **Relatórios e exportação** — exportação CSV/JSON das linhas filtradas da tabela de notas, resumos mensais básicos por status/cliente/valor.
 
-- [ ] **Documentation and onboarding** — production readiness checklist, troubleshooting matrix for common SEFIN/ADN/cert errors, architecture decision notes.
+- [ ] **Documentação e onboarding** — checklist de prontidão para produção, matriz de troubleshooting para erros comuns de SEFIN/ADN/certificado, notas de decisão arquitetural.
 
-- [ ] **Registry growth management** — rotation/archival strategy for the invoice registry so the active file stays bounded over years of usage while archived data remains queryable.
+- [ ] **Suporte a NFS-e doméstica** — atualmente o emissor é voltado para exportação de serviços (clientes internacionais, `comExt`, NIF, moeda estrangeira). Para suportar NFS-e doméstica: adicionar seletor de tipo de nota (`exportação` / `doméstica`); ramificar o DPS builder para gerar `comNac` + `endNac` com códigos IBGE em vez de `comExt` + `endExt`; aceitar CPF/CNPJ além de NIF no modelo de cliente; ocultar campos COMEX na TUI quando doméstica; adicionar validadores de CPF/CNPJ; criar exemplos de config para clientes nacionais.
+
+- [ ] **Gestão de crescimento do registro** — estratégia de rotação/arquivamento do registro de notas para que o arquivo ativo se mantenha limitado ao longo dos anos, com dados arquivados ainda consultáveis.
