@@ -18,7 +18,7 @@ config/                    # YAML config (emitter + clients), gitignored; .examp
 src/emissor/
   config.py                # Loads YAML config, .env, endpoints, BRT timezone, constants
   cli.py                   # Entry point — launches Textual TUI
-  models/                  # Dataclasses: Emitter, Client, Intermediary, Invoice
+  models/                  # Dataclasses: Emitter, Client, Intermediary (in client.py), Invoice
   services/
     dps_builder.py         # Builds DPS XML element from models
     xml_signer.py          # Signs XML with ICP-Brasil A1 certificate
@@ -26,15 +26,20 @@ src/emissor/
     sefin_client.py        # SEFIN API client (submit DPS)
     adn_client.py          # ADN API client (query NFS-e, download DANFSE)
     emission.py            # Orchestrates: config → build → sign → submit
+    http_retry.py          # Resilient HTTP with retry/backoff
+    exceptions.py          # SefinRejectError and custom exceptions
   tui/
     app.py                 # Textual App (EmissorApp), loads CSS, mounts dashboard
     app.tcss               # Global Textual CSS
+    options.py             # Shared Select option constants for NFS-e form fields
     screens/
       dashboard.py         # Main screen: info cards, filters, DataTable, keybindings
       new_invoice.py       # Modal: form → preview → submit NFS-e
+      clients.py           # Modal: client management CRUD
       query.py             # Modal: query NFS-e by chave de acesso
       download_pdf.py      # Modal: download DANFSE PDF
       validate.py          # Modal: validate certificate + config
+      confirm.py           # Reusable confirmation dialog
       help.py              # Modal: keyboard shortcuts, about, disclaimer
   utils/
     dps_id.py              # Generates 45-char DPS ID
