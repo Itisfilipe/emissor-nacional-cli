@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from emissor.utils.validators import (
+    validate_access_key,
     validate_c_nbs,
     validate_c_pais_result,
     validate_c_trib_nac,
@@ -10,6 +11,7 @@ from emissor.utils.validators import (
     validate_date,
     validate_monetary,
     validate_percent,
+    validate_postal_code,
     validate_tp_moeda,
 )
 
@@ -198,37 +200,52 @@ class TestValidatePercent:
 
 class TestValidateAccessKey:
     def test_valid_50_chars(self):
-        from emissor.utils.validators import validate_access_key
-
         key = "A" * 50
         assert validate_access_key(key) == key
 
     def test_valid_alphanumeric(self):
-        from emissor.utils.validators import validate_access_key
-
         key = "aB3" * 16 + "xY"  # 50 chars
         assert validate_access_key(key) == key
 
     def test_too_short(self):
-        from emissor.utils.validators import validate_access_key
-
         with pytest.raises(ValueError, match="50 caracteres"):
             validate_access_key("A" * 49)
 
     def test_too_long(self):
-        from emissor.utils.validators import validate_access_key
-
         with pytest.raises(ValueError, match="50 caracteres"):
             validate_access_key("A" * 51)
 
     def test_special_chars(self):
-        from emissor.utils.validators import validate_access_key
-
         with pytest.raises(ValueError, match="50 caracteres"):
             validate_access_key("A" * 49 + "-")
 
     def test_empty(self):
-        from emissor.utils.validators import validate_access_key
-
         with pytest.raises(ValueError, match="50 caracteres"):
             validate_access_key("")
+
+
+class TestValidatePostalCode:
+    def test_valid_us_zip(self):
+        assert validate_postal_code("10001") == "10001"
+
+    def test_valid_us_zip_plus4(self):
+        assert validate_postal_code("10001-1234") == "10001-1234"
+
+    def test_valid_uk_postcode(self):
+        assert validate_postal_code("SW1A 1AA") == "SW1A 1AA"
+
+    def test_too_short(self):
+        with pytest.raises(ValueError, match="3-10"):
+            validate_postal_code("AB")
+
+    def test_too_long(self):
+        with pytest.raises(ValueError, match="3-10"):
+            validate_postal_code("12345678901")
+
+    def test_empty(self):
+        with pytest.raises(ValueError, match="3-10"):
+            validate_postal_code("")
+
+    def test_special_chars(self):
+        with pytest.raises(ValueError, match="3-10"):
+            validate_postal_code("123#4")
