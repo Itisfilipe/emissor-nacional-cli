@@ -45,7 +45,10 @@ async def test_validate_connectivity_success(mock_config):
     """Mocked connectivity success shows OK in output."""
     from textual.widgets import RichLog
 
-    with patch("emissor.services.adn_client.check_connectivity"):
+    with (
+        patch("emissor.services.adn_client.check_connectivity"),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
+    ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
             await pilot.press("v")
@@ -64,9 +67,12 @@ async def test_validate_connectivity_error(mock_config):
     """Mocked connectivity failure shows ERRO in output."""
     from textual.widgets import RichLog
 
-    with patch(
-        "emissor.services.adn_client.check_connectivity",
-        side_effect=RuntimeError("Connection refused"),
+    with (
+        patch(
+            "emissor.services.adn_client.check_connectivity",
+            side_effect=RuntimeError("Connection refused"),
+        ),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
@@ -89,6 +95,7 @@ async def test_validate_cert_not_configured(mock_config):
     with (
         patch("emissor.config.get_cert_path", side_effect=KeyError("CERT_PFX_PATH")),
         patch("emissor.services.adn_client.check_connectivity"),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
@@ -127,6 +134,7 @@ async def test_validate_client_with_error(mock_config):
         patch("emissor.config.list_clients", return_value=["good-client", "bad-client"]),
         patch("emissor.config.load_client", side_effect=mock_load),
         patch("emissor.services.adn_client.check_connectivity"),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
@@ -149,6 +157,7 @@ async def test_validate_no_clients_warning(mock_config):
     with (
         patch("emissor.config.list_clients", return_value=[]),
         patch("emissor.services.adn_client.check_connectivity"),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
@@ -183,6 +192,7 @@ async def test_validate_all_ok_notification(mock_config):
     with (
         patch("emissor.config.load_client", side_effect=mock_load),
         patch("emissor.services.adn_client.check_connectivity"),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
@@ -223,6 +233,7 @@ async def test_validate_emitter_error(mock_config):
             side_effect=RuntimeError("emitter.yaml not found"),
         ),
         patch("emissor.services.adn_client.check_connectivity"),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
     ):
         app = EmissorApp(env="homologacao")
         async with app.run_test() as pilot:
@@ -235,3 +246,50 @@ async def test_validate_emitter_error(mock_config):
             text = "\n".join(lines)
             assert "ERRO" in text
             assert "Emitente" in text
+
+
+@pytest.mark.asyncio
+async def test_validate_sefin_success(mock_config):
+    """Mocked SEFIN connectivity success shows OK in output."""
+    from textual.widgets import RichLog
+
+    with (
+        patch("emissor.services.adn_client.check_connectivity"),
+        patch("emissor.services.sefin_client.check_sefin_connectivity"),
+    ):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("v")
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.pause()
+            log = app.screen.query_one("#validation-output", RichLog)
+            lines = [str(line) for line in log.lines]
+            text = "\n".join(lines)
+            assert "Conectividade SEFIN" in text
+            assert "OK" in text
+
+
+@pytest.mark.asyncio
+async def test_validate_sefin_error(mock_config):
+    """Mocked SEFIN connectivity failure shows ERRO in output."""
+    from textual.widgets import RichLog
+
+    with (
+        patch("emissor.services.adn_client.check_connectivity"),
+        patch(
+            "emissor.services.sefin_client.check_sefin_connectivity",
+            side_effect=RuntimeError("Connection refused"),
+        ),
+    ):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("v")
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.pause()
+            log = app.screen.query_one("#validation-output", RichLog)
+            lines = [str(line) for line in log.lines]
+            text = "\n".join(lines)
+            assert "ERRO" in text
+            assert "Conectividade SEFIN" in text
