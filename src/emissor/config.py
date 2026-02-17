@@ -8,7 +8,36 @@ import platformdirs
 import yaml
 from dotenv import load_dotenv
 
+KEYRING_SERVICE = "emissor-nacional"
+KEYRING_USERNAME = "cert-pfx-password"
+
+
+def _resolve_config_dir_for_dotenv() -> Path | None:
+    """Resolve config dir for .env loading without depending on env vars from .env itself.
+
+    Uses the same 3-tier resolution as _resolve_dir but only checks sources
+    available before .env is loaded (env var set in shell, dev layout).
+    Returns None if only platformdirs would resolve (since the dir may not exist yet).
+    """
+    from_env = os.environ.get("EMISSOR_CONFIG_DIR")
+    if from_env:
+        return Path(from_env)
+    project_root = Path(__file__).resolve().parent.parent.parent
+    candidate = project_root / "config"
+    if candidate.is_dir():
+        return candidate
+    # For pip installs, use platformdirs — dir may not exist yet but .env could be there
+    pd = Path(platformdirs.user_config_dir("emissor-nacional"))
+    if pd.is_dir():
+        return pd
+    return None
+
+
+# Load .env: cwd first (highest priority), then config dir (won't override)
 load_dotenv()
+_cfg_dir = _resolve_config_dir_for_dotenv()
+if _cfg_dir is not None:
+    load_dotenv(_cfg_dir / ".env")
 
 
 def _resolve_dir(env_var: str, default_subdir: str, kind: str) -> Path:
@@ -61,6 +90,47 @@ SEFIN_TIMEOUT = 60
 ADN_TIMEOUT = 30
 
 
+# --- Keyring helpers ---
+
+
+def _get_keyring_password() -> str | None:
+    """Try to get the certificate password from the OS keyring.
+
+    Returns None on any failure (no backend, not stored, dbus errors, etc.).
+    """
+    try:
+        import keyring
+
+        return keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME)
+    except Exception:
+        return None
+
+
+def _set_keyring_password(password: str) -> bool:
+    """Store the certificate password in the OS keyring. Returns True on success."""
+    try:
+        import keyring
+
+        keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, password)
+        return True
+    except Exception:
+        return False
+
+
+def _delete_keyring_password() -> bool:
+    """Remove the certificate password from the OS keyring. Returns True on success."""
+    try:
+        import keyring
+
+        keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
+        return True
+    except Exception:
+        return False
+
+
+# --- Certificate access ---
+
+
 def get_cert_path() -> str:
     """Return the path to the .pfx certificate from CERT_PFX_PATH env var.
 
@@ -70,11 +140,21 @@ def get_cert_path() -> str:
 
 
 def get_cert_password() -> str:
-    """Return the certificate password from CERT_PFX_PASSWORD env var.
+    """Return the certificate password.
 
-    Raises KeyError if the variable is not set.
+    Priority: 1) CERT_PFX_PASSWORD env var, 2) OS keyring.
+    Raises KeyError if neither source has the password.
     """
-    return os.environ["CERT_PFX_PASSWORD"]
+    pwd = os.environ.get("CERT_PFX_PASSWORD")
+    if pwd is not None:
+        return pwd
+    pwd = _get_keyring_password()
+    if pwd is not None:
+        return pwd
+    raise KeyError("CERT_PFX_PASSWORD")
+
+
+# --- YAML config ---
 
 
 def load_yaml(path: Path) -> dict:
