@@ -59,6 +59,7 @@ def prepare(
     competencia: str,
     env: str = "homologacao",
     intermediario: str | None = None,
+    overrides: dict[str, str] | None = None,
 ) -> PreparedDPS:
     """Build, sign, and atomically reserve the sequence number for DPS."""
     emitter = Emitter.from_dict(load_emitter())
@@ -71,12 +72,14 @@ def prepare(
     n_dps = next_n_dps(env)
     tp_amb = TP_AMB[env]
 
+    extra = overrides or {}
     invoice = Invoice(
         valor_brl=valor_brl,
         valor_usd=valor_usd,
         competencia=competencia,
         n_dps=n_dps,
         dh_emi=_now_brt(),
+        **extra,
     )
 
     dps = build_dps(emitter, client, invoice, tp_amb, intermediary)
