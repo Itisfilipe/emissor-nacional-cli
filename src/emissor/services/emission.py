@@ -25,7 +25,7 @@ from emissor.services.sefin_client import emit_nfse
 from emissor.services.xml_encoder import encode_dps
 from emissor.services.xml_signer import sign_dps
 from emissor.utils.certificate import load_pfx
-from emissor.utils.registry import add_invoice
+from emissor.utils.registry import add_invoice, update_invoice
 from emissor.utils.sequence import next_n_dps
 
 logger = logging.getLogger(__name__)
@@ -72,15 +72,34 @@ def prepare(
     n_dps = next_n_dps(env)
     tp_amb = TP_AMB[env]
 
-    extra = overrides or {}
+    dh_emi = _now_brt()
+
     invoice = Invoice(
         valor_brl=valor_brl,
         valor_usd=valor_usd,
         competencia=competencia,
         n_dps=n_dps,
-        dh_emi=_now_brt(),
-        **extra,
+        dh_emi=dh_emi,
+        **(overrides or {}),
     )
+
+    # Create draft registry entry immediately after reserving the sequence
+    try:
+        add_invoice(
+            f"draft_{env}_{n_dps}",
+            n_dps=n_dps,
+            client=client.nome,
+            client_slug=client_name,
+            valor_brl=valor_brl,
+            valor_usd=valor_usd,
+            competencia=competencia,
+            emitted_at=dh_emi,
+            env=env,
+            status="preparada",
+            overrides=overrides,
+        )
+    except Exception:
+        logger.warning("Failed to create draft registry entry", exc_info=True)
 
     dps = build_dps(emitter, client, invoice, tp_amb, intermediary)
 
@@ -147,23 +166,31 @@ def submit(prepared: PreparedDPS) -> dict:
         except Exception:
             logger.warning("Failed to save NFS-e XML from response", exc_info=True)
 
-    # Register in local invoice registry
+    # Register in local invoice registry — promote draft or fall back to add
     chave = response.get("chNFSe")
     if chave:
         try:
-            overrides = _extract_overrides(prepared.invoice)
-            add_invoice(
-                chave,
+            updated = update_invoice(
                 n_dps=prepared.n_dps,
-                client=prepared.client.nome,
-                client_slug=prepared.client_slug,
-                valor_brl=prepared.invoice.valor_brl,
-                valor_usd=prepared.invoice.valor_usd,
-                competencia=prepared.invoice.competencia,
-                emitted_at=prepared.invoice.dh_emi,
                 env=prepared.env,
-                overrides=overrides,
+                status="emitida",
+                chave=chave,
             )
+            if updated is None:
+                # No draft entry found (pre-P0-06 prepare), fall back
+                overrides = _extract_overrides(prepared.invoice)
+                add_invoice(
+                    chave,
+                    n_dps=prepared.n_dps,
+                    client=prepared.client.nome,
+                    client_slug=prepared.client_slug,
+                    valor_brl=prepared.invoice.valor_brl,
+                    valor_usd=prepared.invoice.valor_usd,
+                    competencia=prepared.invoice.competencia,
+                    emitted_at=prepared.invoice.dh_emi,
+                    env=prepared.env,
+                    overrides=overrides,
+                )
         except Exception:
             logger.warning("Failed to register invoice", exc_info=True)
 
@@ -178,4 +205,23 @@ def save_xml(prepared: PreparedDPS) -> str:
     out_path = get_issued_dir(prepared.env) / f"dry_run_dps_{prepared.n_dps}.xml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(prepared.signed_xml)
+
+    try:
+        update_invoice(n_dps=prepared.n_dps, env=prepared.env, status="rascunho")
+    except Exception:
+        logger.warning("Failed to update draft to rascunho", exc_info=True)
+
     return str(out_path)
+
+
+def mark_failed(prepared: PreparedDPS, error: str) -> None:
+    """Mark a prepared DPS as failed in the registry."""
+    try:
+        update_invoice(
+            n_dps=prepared.n_dps,
+            env=prepared.env,
+            status="falha",
+            error=error[:500],
+        )
+    except Exception:
+        logger.warning("Failed to mark invoice as failed", exc_info=True)
