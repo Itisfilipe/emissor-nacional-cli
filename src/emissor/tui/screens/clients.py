@@ -7,7 +7,30 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Label, Static
+from textual.widgets import Button, DataTable, Input, Label, Select, Static
+
+from emissor.tui.options import MEC_AF_COMEX_P_OPTIONS, MEC_AF_COMEX_T_OPTIONS
+
+# Mapping of (widget_id, dict_key, default_value) for Input fields in the client form.
+# Used by _fill_form, _clear_form, and _do_save to avoid repeating the same field list.
+_INPUT_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("client-slug", "slug", ""),
+    ("client-nome", "nome", ""),
+    ("client-nif", "nif", ""),
+    ("client-pais", "pais", "US"),
+    ("client-logradouro", "logradouro", ""),
+    ("client-numero", "numero", ""),
+    ("client-bairro", "bairro", "n/a"),
+    ("client-cidade", "cidade", ""),
+    ("client-estado", "estado", ""),
+    ("client-cep", "cep", ""),
+    ("client-complemento", "complemento", ""),
+)
+
+_SELECT_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("client-mec-af-comex-p", "mec_af_comex_p", "02"),
+    ("client-mec-af-comex-t", "mec_af_comex_t", "02"),
+)
 
 
 class ClientsScreen(ModalScreen):
@@ -15,6 +38,7 @@ class ClientsScreen(ModalScreen):
 
     BINDINGS = [
         Binding("escape", "go_back", "Voltar"),
+        Binding("q", "go_back", show=False),
     ]
 
     def __init__(self) -> None:
@@ -34,42 +58,123 @@ class ClientsScreen(ModalScreen):
                 yield DataTable(id="clients-table", cursor_type="row")
                 with Horizontal(classes="button-bar"):
                     yield Button("\u2715 Fechar", id="btn-clients-close", variant="error")
-                    yield Button("\u2716 Excluir", id="btn-delete-cliente", variant="warning")
-                    yield Button("\u25b6 Novo Cliente", id="btn-novo-cliente", variant="primary")
+                    yield Button(
+                        "\u25b6 Editar",
+                        id="btn-edit-cliente",
+                        tooltip="Editar cliente selecionado",
+                    )
+                    yield Button(
+                        "\u2716 Excluir",
+                        id="btn-delete-cliente",
+                        variant="warning",
+                        tooltip="Excluir cliente selecionado",
+                    )
+                    yield Button(
+                        "\u25b6 Novo Cliente",
+                        id="btn-novo-cliente",
+                        variant="primary",
+                        tooltip="Cadastrar novo cliente",
+                    )
 
             # Phase 2: Form
             with Container(id="client-form-container"):
                 yield Label("Identificador (slug)", classes="form-label")
-                yield Input(placeholder="acme-corp", id="client-slug")
+                yield Input(
+                    placeholder="acme-corp",
+                    id="client-slug",
+                    tooltip="Identificador único do cliente (letras minúsculas, números, _ e -)",
+                )
                 yield Label("Nome", classes="form-label")
-                yield Input(placeholder="Acme Corp", id="client-nome")
+                yield Input(
+                    placeholder="Acme Corp",
+                    id="client-nome",
+                    tooltip="Nome ou razão social do cliente",
+                )
                 yield Label("NIF", classes="form-label")
-                yield Input(placeholder="123456789", id="client-nif")
+                yield Input(
+                    placeholder="123456789",
+                    id="client-nif",
+                    tooltip="Número de Identificação Fiscal no país de origem",
+                )
                 yield Label("País", classes="form-label")
-                yield Input(placeholder="US", id="client-pais", value="US")
+                yield Input(
+                    placeholder="US",
+                    id="client-pais",
+                    value="US",
+                    tooltip="Código ISO 3166-1 alfa-2 do país (ex: US, DE, GB)",
+                )
                 yield Label("Logradouro", classes="form-label")
-                yield Input(placeholder="100 Main St", id="client-logradouro")
+                yield Input(
+                    placeholder="100 Main St",
+                    id="client-logradouro",
+                    tooltip="Endereço: rua ou avenida",
+                )
                 yield Label("Número", classes="form-label")
-                yield Input(placeholder="100", id="client-numero")
+                yield Input(
+                    placeholder="100",
+                    id="client-numero",
+                    tooltip="Número do endereço",
+                )
                 yield Label("Bairro", classes="form-label")
-                yield Input(placeholder="n/a", id="client-bairro", value="n/a")
+                yield Input(
+                    placeholder="n/a",
+                    id="client-bairro",
+                    value="n/a",
+                    tooltip="Bairro ou distrito",
+                )
                 yield Label("Cidade", classes="form-label")
-                yield Input(placeholder="New York", id="client-cidade")
+                yield Input(
+                    placeholder="New York",
+                    id="client-cidade",
+                    tooltip="Cidade",
+                )
                 yield Label("Estado", classes="form-label")
-                yield Input(placeholder="NY", id="client-estado")
+                yield Input(
+                    placeholder="NY",
+                    id="client-estado",
+                    tooltip="Estado ou província (sigla)",
+                )
                 yield Label("CEP", classes="form-label")
-                yield Input(placeholder="10001", id="client-cep")
+                yield Input(
+                    placeholder="10001",
+                    id="client-cep",
+                    tooltip="Código postal / ZIP code",
+                )
                 yield Label("Complemento", classes="form-label")
-                yield Input(placeholder="Sala 101", id="client-complemento")
+                yield Input(
+                    placeholder="Sala 101",
+                    id="client-complemento",
+                    tooltip="Complemento do endereço (sala, andar, etc.)",
+                )
                 yield Label("Mecanismo de afastamento do COMEX (prestador)", classes="form-label")
-                yield Input(placeholder="02", id="client-mec-af-comex-p", value="02")
+                yield Select(
+                    MEC_AF_COMEX_P_OPTIONS,
+                    id="client-mec-af-comex-p",
+                    value="02",
+                    allow_blank=False,
+                )
                 yield Label("Mecanismo de afastamento do COMEX (tomador)", classes="form-label")
-                yield Input(placeholder="02", id="client-mec-af-comex-t", value="02")
+                yield Select(
+                    MEC_AF_COMEX_T_OPTIONS,
+                    id="client-mec-af-comex-t",
+                    value="02",
+                    allow_blank=False,
+                )
                 yield Label("", id="client-error-label")
                 with Horizontal(classes="button-bar"):
                     yield Button("\u2190 Voltar", id="btn-form-back", variant="error")
-                    yield Button("\u2716 Excluir", id="btn-form-delete", variant="warning")
-                    yield Button("\u25b6 Salvar", id="btn-salvar-cliente", variant="success")
+                    yield Button(
+                        "\u2716 Excluir",
+                        id="btn-form-delete",
+                        variant="warning",
+                        tooltip="Excluir este cliente permanentemente",
+                    )
+                    yield Button(
+                        "\u25b6 Salvar",
+                        id="btn-salvar-cliente",
+                        variant="success",
+                        tooltip="Salvar dados do cliente em config/",
+                    )
 
     def on_mount(self) -> None:
         self._show_phase("list")
@@ -112,6 +217,8 @@ class ClientsScreen(ModalScreen):
         match event.button.id:
             case "btn-clients-close" | "btn-modal-close":
                 self.app.pop_screen()
+            case "btn-edit-cliente":
+                self._edit_selected()
             case "btn-novo-cliente":
                 self._open_new_form()
             case "btn-form-back":
@@ -127,6 +234,15 @@ class ClientsScreen(ModalScreen):
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         slug = str(event.row_key.value)
         self._open_edit_form(slug)
+
+    def _edit_selected(self) -> None:
+        """Edit the client selected in the table."""
+        table = self.query_one("#clients-table", DataTable)
+        if table.row_count == 0:
+            self.notify("Nenhum cliente selecionado", severity="warning", timeout=3)
+            return
+        row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
+        self._open_edit_form(str(row_key.value))
 
     def _open_new_form(self) -> None:
         self._editing_slug = None
@@ -156,83 +272,58 @@ class ClientsScreen(ModalScreen):
         self.app.call_from_thread(self._fill_form, slug, data)
 
     def _fill_form(self, slug: str, data: dict) -> None:
-        self.query_one("#client-slug", Input).value = slug
-        self.query_one("#client-nome", Input).value = data.get("nome", "")
-        self.query_one("#client-nif", Input).value = data.get("nif", "")
-        self.query_one("#client-pais", Input).value = data.get("pais", "US")
-        self.query_one("#client-logradouro", Input).value = data.get("logradouro", "")
-        self.query_one("#client-numero", Input).value = data.get("numero", "")
-        self.query_one("#client-bairro", Input).value = data.get("bairro", "n/a")
-        self.query_one("#client-cidade", Input).value = data.get("cidade", "")
-        self.query_one("#client-estado", Input).value = data.get("estado", "")
-        self.query_one("#client-cep", Input).value = data.get("cep", "")
-        self.query_one("#client-complemento", Input).value = data.get("complemento", "")
-        self.query_one("#client-mec-af-comex-p", Input).value = str(
-            data.get("mec_af_comex_p", "02")
-        )
-        self.query_one("#client-mec-af-comex-t", Input).value = str(
-            data.get("mec_af_comex_t", "02")
-        )
+        merged = {**data, "slug": slug}
+        for widget_id, key, default in _INPUT_FIELDS:
+            self.query_one(f"#{widget_id}", Input).value = merged.get(key, default)
+        for widget_id, key, default in _SELECT_FIELDS:
+            self.query_one(f"#{widget_id}", Select).value = str(merged.get(key, default)).zfill(2)
         self._show_phase("form")
         self.query_one("#client-nome", Input).focus()
 
     def _clear_form(self) -> None:
-        self.query_one("#client-slug", Input).value = ""
-        self.query_one("#client-nome", Input).value = ""
-        self.query_one("#client-nif", Input).value = ""
-        self.query_one("#client-pais", Input).value = "US"
-        self.query_one("#client-logradouro", Input).value = ""
-        self.query_one("#client-numero", Input).value = ""
-        self.query_one("#client-bairro", Input).value = "n/a"
-        self.query_one("#client-cidade", Input).value = ""
-        self.query_one("#client-estado", Input).value = ""
-        self.query_one("#client-cep", Input).value = ""
-        self.query_one("#client-complemento", Input).value = ""
-        self.query_one("#client-mec-af-comex-p", Input).value = "02"
-        self.query_one("#client-mec-af-comex-t", Input).value = "02"
+        for widget_id, _, default in _INPUT_FIELDS:
+            self.query_one(f"#{widget_id}", Input).value = default
+        for widget_id, _, default in _SELECT_FIELDS:
+            self.query_one(f"#{widget_id}", Select).value = default
         self.query_one("#client-error-label", Label).update("")
+
+    def _read_form_values(self) -> dict[str, str]:
+        """Read all form widget values into a dict keyed by field name."""
+        values: dict[str, str] = {}
+        for widget_id, key, _ in _INPUT_FIELDS:
+            values[key] = self.query_one(f"#{widget_id}", Input).value.strip()
+        for widget_id, key, _ in _SELECT_FIELDS:
+            values[key] = str(self.query_one(f"#{widget_id}", Select).value)
+        return values
 
     def _do_save(self) -> None:
         error_label = self.query_one("#client-error-label", Label)
         error_label.update("")
 
-        slug = self.query_one("#client-slug", Input).value.strip()
-        nome = self.query_one("#client-nome", Input).value.strip()
-        nif = self.query_one("#client-nif", Input).value.strip()
-        pais = self.query_one("#client-pais", Input).value.strip()
-        logradouro = self.query_one("#client-logradouro", Input).value.strip()
-        numero = self.query_one("#client-numero", Input).value.strip()
-        bairro = self.query_one("#client-bairro", Input).value.strip()
-        cidade = self.query_one("#client-cidade", Input).value.strip()
-        estado = self.query_one("#client-estado", Input).value.strip()
-        cep = self.query_one("#client-cep", Input).value.strip()
-        complemento = self.query_one("#client-complemento", Input).value.strip()
-        mec_af_comex_p = self.query_one("#client-mec-af-comex-p", Input).value.strip()
-        mec_af_comex_t = self.query_one("#client-mec-af-comex-t", Input).value.strip()
-
+        v = self._read_form_values()
         errors: list[str] = []
-        if not slug or not re.match(r"^[a-z0-9_-]+$", slug):
+        if not v["slug"] or not re.match(r"^[a-z0-9_-]+$", v["slug"]):
             errors.append("Slug: apenas letras minúsculas, números, _ e -")
-        if not nome:
+        if not v["nome"]:
             errors.append("Nome obrigatório")
-        if not nif:
+        if not v["nif"]:
             errors.append("NIF obrigatório")
-        if not logradouro:
+        if not v["logradouro"]:
             errors.append("Logradouro obrigatório")
-        if not numero:
+        if not v["numero"]:
             errors.append("Número obrigatório")
-        if not cidade:
+        if not v["cidade"]:
             errors.append("Cidade obrigatória")
-        if not estado:
+        if not v["estado"]:
             errors.append("Estado obrigatório")
-        if not cep:
+        if not v["cep"]:
             errors.append("CEP obrigatório")
 
         # Check slug uniqueness for new clients
         if not self._editing_slug and not errors:
             from emissor.config import list_clients
 
-            if slug in list_clients():
+            if v["slug"] in list_clients():
                 errors.append("Slug já existe")
 
         if errors:
@@ -240,21 +331,21 @@ class ClientsScreen(ModalScreen):
             return
 
         data: dict[str, str] = {
-            "nif": nif,
-            "nome": nome,
-            "pais": pais or "US",
-            "logradouro": logradouro,
-            "numero": numero,
-            "bairro": bairro or "n/a",
-            "cidade": cidade,
-            "estado": estado,
-            "cep": cep,
+            "nif": v["nif"],
+            "nome": v["nome"],
+            "pais": v["pais"] or "US",
+            "logradouro": v["logradouro"],
+            "numero": v["numero"],
+            "bairro": v["bairro"] or "n/a",
+            "cidade": v["cidade"],
+            "estado": v["estado"],
+            "cep": v["cep"],
         }
-        if complemento:
-            data["complemento"] = complemento
-        data["mec_af_comex_p"] = mec_af_comex_p or "02"
-        data["mec_af_comex_t"] = mec_af_comex_t or "02"
-        self._run_save(slug, data)
+        if v["complemento"]:
+            data["complemento"] = v["complemento"]
+        data["mec_af_comex_p"] = v["mec_af_comex_p"] or "02"
+        data["mec_af_comex_t"] = v["mec_af_comex_t"] or "02"
+        self._run_save(v["slug"], data)
 
     @work(thread=True)
     def _run_save(self, slug: str, data: dict) -> None:

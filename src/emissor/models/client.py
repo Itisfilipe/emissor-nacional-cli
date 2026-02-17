@@ -34,8 +34,8 @@ class Client:
             estado=d["estado"],
             cep=d["cep"],
             complemento=d.get("complemento"),
-            mec_af_comex_p=str(d.get("mec_af_comex_p", "02")),
-            mec_af_comex_t=str(d.get("mec_af_comex_t", "02")),
+            mec_af_comex_p=str(d.get("mec_af_comex_p", "02")).zfill(2),
+            mec_af_comex_t=str(d.get("mec_af_comex_t", "02")).zfill(2),
         )
 
 

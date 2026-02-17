@@ -3,7 +3,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
-from textual.widgets import Button, DataTable, Input, Label
+from textual.widgets import Button, DataTable, Input, Label, Select
 
 from emissor.tui.app import EmissorApp
 from emissor.tui.screens.clients import ClientsScreen
@@ -92,8 +92,8 @@ async def test_save_writes_yaml(mock_config, tmp_path):
             screen.query_one("#client-estado", Input).value = "NY"
             screen.query_one("#client-cep", Input).value = "10001"
             screen.query_one("#client-complemento", Input).value = "Apt 5B"
-            screen.query_one("#client-mec-af-comex-p", Input).value = "03"
-            screen.query_one("#client-mec-af-comex-t", Input).value = "04"
+            screen.query_one("#client-mec-af-comex-p", Select).value = "03"
+            screen.query_one("#client-mec-af-comex-t", Select).value = "04"
 
             screen.query_one("#btn-salvar-cliente", Button).press()
             await pilot.pause()
@@ -153,8 +153,8 @@ async def test_edit_prefills_form(mock_config):
             assert screen.query_one("#client-nome", Input).value == "Acme Corp"
             assert screen.query_one("#client-nif", Input).value == "123"
             assert screen.query_one("#client-complemento", Input).value == "Suite 200"
-            assert screen.query_one("#client-mec-af-comex-p", Input).value == "03"
-            assert screen.query_one("#client-mec-af-comex-t", Input).value == "04"
+            assert screen.query_one("#client-mec-af-comex-p", Select).value == "03"
+            assert screen.query_one("#client-mec-af-comex-t", Select).value == "04"
 
 
 @pytest.mark.asyncio

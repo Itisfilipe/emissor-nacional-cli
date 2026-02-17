@@ -1,29 +1,63 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
+from textual.events import Key
 from textual.screen import ModalScreen
-from textual.widgets import Button, DataTable, Input, Label, MaskedInput, Select, Static
+from textual.widgets import (
+    Button,
+    DataTable,
+    Input,
+    Label,
+    MaskedInput,
+    OptionList,
+    Select,
+    Static,
+)
 
 if TYPE_CHECKING:
     from emissor.services.emission import PreparedDPS
 
+from emissor.tui.options import (
+    MD_PRESTACAO_OPTIONS,
+    MDIC_OPTIONS,
+    MEC_AF_COMEX_P_OPTIONS,
+    MEC_AF_COMEX_T_OPTIONS,
+    MOV_TEMP_BENS_OPTIONS,
+    TP_RET_ISSQN_OPTIONS,
+    TRIB_ISSQN_OPTIONS,
+    VINC_PREST_OPTIONS,
+)
+
+logger = logging.getLogger(__name__)
+
+STEPS = ["pessoas", "servico", "valores", "revisao"]
+STEP_LABELS = [
+    "Passo 1/4 — Pessoas",
+    "Passo 2/4 — Serviço",
+    "Passo 3/4 — Valores",
+    "Passo 4/4 — Revisão",
+]
+
 
 class NewInvoiceScreen(ModalScreen):
-    """Three-phase screen: form -> preview -> result."""
+    """Four-step wizard: Pessoas -> Serviço -> Valores -> Revisão -> Result."""
 
     BINDINGS = [
         Binding("escape", "go_back", "Voltar"),
+        Binding("q", "go_back", show=False),
     ]
 
     def __init__(self, prefill: dict | None = None) -> None:
         super().__init__()
         self._prepared: PreparedDPS | None = None
-        self._phase = "form"
+        self._step = 1
+        self._phase = "wizard"  # "wizard" or "result"
         self._result_ch_nfse: str | None = None
         self._prefill = prefill
 
@@ -33,25 +67,168 @@ class NewInvoiceScreen(ModalScreen):
                 yield Static("Nova NFS-e", id="header-bar")
                 yield Button("\u2715", id="btn-modal-close")
 
-            # Phase 1: Form
-            with Container(id="form-container"):
+            yield Static(STEP_LABELS[0], id="step-indicator")
+
+            # Step 1 — Pessoas
+            with Container(id="step-1-pessoas"):
                 yield Label("Cliente", classes="form-label")
-                yield Select([], id="client-select", prompt="Selecione o cliente")
-                yield Label("Valor BRL", classes="form-label")
-                yield Input(placeholder="19684.93", id="valor-brl")
-                yield Label("Valor USD", classes="form-label")
-                yield Input(placeholder="3640.00", id="valor-usd")
-                yield Label("Competência", classes="form-label")
-                yield MaskedInput(template="00/00/0000", id="competencia")
+                yield Select(
+                    [],
+                    id="client-select",
+                    prompt="Selecione o cliente",
+                    tooltip="Tomador: empresa ou pessoa que recebe o serviço",
+                )
                 yield Label("Intermediário", classes="form-label")
-                yield Select([], id="intermediario-select", prompt="Nenhum")
+                yield Select(
+                    [],
+                    id="intermediario-select",
+                    prompt="Nenhum",
+                    tooltip="Terceiro que intermedia a prestação (opcional)",
+                )
+                yield Label("Competência", classes="form-label")
+                yield MaskedInput(
+                    template="00/00/0000",
+                    id="competencia",
+                    tooltip="Data da prestação do serviço (DD/MM/AAAA)",
+                )
                 yield Label("", id="error-label")
                 with Horizontal(classes="button-bar"):
                     yield Button("\u2715 Fechar", id="btn-form-voltar", variant="error")
+                    yield Button("\u25b6 Próximo", id="btn-step1-next", variant="primary")
+
+            # Step 2 — Serviço
+            with Container(id="step-2-servico"):
+                yield Label("Descrição do Serviço", classes="form-label")
+                yield Input(
+                    id="x-desc-serv",
+                    tooltip="Texto livre descrevendo o serviço prestado (xDescServ)",
+                )
+                yield Label("Código Tributação Nacional", classes="form-label")
+                yield Input(
+                    id="c-trib-nac",
+                    tooltip="Código da NBS de tributação nacional (cTribNac)",
+                )
+                yield Label("Código NBS", classes="form-label")
+                yield Input(
+                    id="c-nbs",
+                    tooltip="Código da Nomenclatura Brasileira de Serviços (cNBS)",
+                )
+                yield Label("Modalidade Prestação", classes="form-label")
+                yield Select(
+                    MD_PRESTACAO_OPTIONS,
+                    id="md-prestacao",
+                    value="4",
+                    allow_blank=False,
+                )
+                yield Label("Vínculo Prestador", classes="form-label")
+                yield Select(
+                    VINC_PREST_OPTIONS,
+                    id="vinc-prest",
+                    value="0",
+                    allow_blank=False,
+                )
+                yield Label("Tipo Moeda", classes="form-label")
+                yield Input(
+                    id="tp-moeda",
+                    tooltip="Código ISO 4217 da moeda estrangeira (ex: 220=USD, 978=EUR)",
+                )
+                yield Label("Mecanismo AF COMEX Prestador", classes="form-label")
+                yield Select(
+                    MEC_AF_COMEX_P_OPTIONS,
+                    id="mec-af-comex-p",
+                    value="02",
+                    allow_blank=False,
+                )
+                yield Label("Mecanismo AF COMEX Tomador", classes="form-label")
+                yield Select(
+                    MEC_AF_COMEX_T_OPTIONS,
+                    id="mec-af-comex-t",
+                    value="02",
+                    allow_blank=False,
+                )
+                yield Label("Movimento Temporário Bens", classes="form-label")
+                yield Select(
+                    MOV_TEMP_BENS_OPTIONS,
+                    id="mov-temp-bens",
+                    value="1",
+                    allow_blank=False,
+                )
+                yield Label("MDIC", classes="form-label")
+                yield Select(
+                    MDIC_OPTIONS,
+                    id="mdic",
+                    value="0",
+                    allow_blank=False,
+                )
+                yield Label("País Resultado", classes="form-label")
+                yield Input(
+                    id="c-pais-result",
+                    tooltip="Código ISO 3166-1 alfa-2 do país do resultado (ex: US, DE)",
+                )
+                yield Label("", id="error-label-step2")
+                with Horizontal(classes="button-bar"):
+                    yield Button("\u2190 Voltar", id="btn-step2-back")
+                    yield Button("\u25b6 Próximo", id="btn-step2-next", variant="primary")
+
+            # Step 3 — Valores
+            with Container(id="step-3-valores"):
+                yield Label("Valor BRL", classes="form-label")
+                yield Input(
+                    placeholder="19684.93",
+                    id="valor-brl",
+                    tooltip="Valor do serviço em reais (vServ)",
+                )
+                yield Label("Valor USD", classes="form-label")
+                yield Input(
+                    placeholder="3640.00",
+                    id="valor-usd",
+                    tooltip="Valor do serviço na moeda estrangeira (vServMoeda)",
+                )
+                yield Label("Tributação ISSQN", classes="form-label")
+                yield Select(
+                    TRIB_ISSQN_OPTIONS,
+                    id="trib-issqn",
+                    value="3",
+                    allow_blank=False,
+                )
+                yield Label("Tipo Retenção ISSQN", classes="form-label")
+                yield Select(
+                    TP_RET_ISSQN_OPTIONS,
+                    id="tp-ret-issqn",
+                    value="1",
+                    allow_blank=False,
+                )
+                yield Label("CST PIS/COFINS", classes="form-label")
+                yield Input(
+                    id="cst-pis-cofins",
+                    placeholder="08",
+                    tooltip="Código de situação tributária (ex: 01, 06, 08, 49, 99)",
+                )
+                yield Label("% Total Tributos Federais", classes="form-label")
+                yield Input(
+                    id="p-tot-trib-fed",
+                    placeholder="0.00",
+                    tooltip="Percentual estimado de tributos federais (Lei 12.741)",
+                )
+                yield Label("% Total Tributos Estaduais", classes="form-label")
+                yield Input(
+                    id="p-tot-trib-est",
+                    placeholder="0.00",
+                    tooltip="Percentual estimado de tributos estaduais (Lei 12.741)",
+                )
+                yield Label("% Total Tributos Municipais", classes="form-label")
+                yield Input(
+                    id="p-tot-trib-mun",
+                    placeholder="0.00",
+                    tooltip="Percentual estimado de tributos municipais (Lei 12.741)",
+                )
+                yield Label("", id="error-label-step3")
+                with Horizontal(classes="button-bar"):
+                    yield Button("\u2190 Voltar", id="btn-step3-back")
                     yield Button("\u25b6 Preparar", id="btn-preparar", variant="primary")
 
-            # Phase 2: Preview
-            with Container(id="preview-container"):
+            # Step 4 — Revisão
+            with Container(id="step-4-revisao"):
                 yield DataTable(id="preview-table", show_header=False)
                 yield Label("", id="status-label")
                 with Horizontal(classes="button-bar"):
@@ -59,7 +236,7 @@ class NewInvoiceScreen(ModalScreen):
                     yield Button("\u2913 Salvar XML", id="btn-salvar", variant="warning")
                     yield Button("\u2191 Enviar para SEFIN", id="btn-enviar", variant="success")
 
-            # Phase 3: Result
+            # Result
             with Container(id="result-container"):
                 yield Label("", id="result-info")
                 with Horizontal(classes="button-bar"):
@@ -68,17 +245,37 @@ class NewInvoiceScreen(ModalScreen):
                     yield Button("\u25b6 Consultar", id="btn-result-consultar")
 
     def on_mount(self) -> None:
-        self._show_phase("form")
+        self._show_step(1)
         self._load_clients()
-        self.query_one("#client-select", Select).focus()
 
-    def _show_phase(self, phase: str) -> None:
-        self._phase = phase
-        self.query_one("#form-container").display = phase == "form"
-        self.query_one("#preview-container").display = phase == "preview"
-        self.query_one("#result-container").display = phase == "result"
-        if phase == "form":
+    STEP_FOCUS = {
+        1: "#client-select",
+        2: "#x-desc-serv",
+        3: "#valor-brl",
+    }
+
+    def _show_step(self, step: int) -> None:
+        self._step = step
+        self._phase = "wizard"
+        for i, name in enumerate(STEPS, 1):
+            self.query_one(f"#step-{i}-{name}").display = i == step
+        self.query_one("#result-container").display = False
+        self.query_one("#step-indicator").display = True
+        self._update_step_indicator()
+        if step == 3:
             self.query_one("#btn-preparar", Button).disabled = False
+        if step in self.STEP_FOCUS:
+            self.query_one(self.STEP_FOCUS[step]).focus()
+
+    def _show_result_phase(self) -> None:
+        self._phase = "result"
+        for i, name in enumerate(STEPS, 1):
+            self.query_one(f"#step-{i}-{name}").display = False
+        self.query_one("#result-container").display = True
+        self.query_one("#step-indicator").display = False
+
+    def _update_step_indicator(self) -> None:
+        self.query_one("#step-indicator", Static).update(STEP_LABELS[self._step - 1])
 
     @work(thread=True)
     def _load_clients(self) -> None:
@@ -97,6 +294,7 @@ class NewInvoiceScreen(ModalScreen):
         self.query_one("#intermediario-select", Select).set_options(inter_options)
         if self._prefill:
             self._apply_prefill(clients)
+        self._load_emitter_defaults()
 
     def _apply_prefill(self, clients: list[str]) -> None:
         pf = self._prefill
@@ -110,42 +308,135 @@ class NewInvoiceScreen(ModalScreen):
         if pf.get("valor_usd"):
             self.query_one("#valor-usd", Input).value = pf["valor_usd"]
 
+    @work(thread=True)
+    def _load_emitter_defaults(self) -> None:
+        """Pre-fill Step 2 fields from emitter config."""
+        try:
+            from emissor.config import load_emitter
+            from emissor.models.emitter import Emitter
+
+            emitter = Emitter.from_dict(load_emitter())
+            self.app.call_from_thread(self._fill_emitter_fields, emitter)
+        except Exception:
+            logger.debug("Failed to load emitter defaults for Step 2", exc_info=True)
+
+    def _fill_emitter_fields(self, emitter) -> None:
+        """Fill Step 2 inputs from emitter values (only if empty)."""
+        field_map = {
+            "#x-desc-serv": emitter.x_desc_serv,
+            "#c-trib-nac": emitter.c_trib_nac,
+            "#c-nbs": emitter.c_nbs,
+            "#tp-moeda": emitter.tp_moeda,
+            "#c-pais-result": emitter.c_pais_result,
+        }
+        for selector, value in field_map.items():
+            inp = self.query_one(selector, Input)
+            if not inp.value:
+                inp.value = value
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id == "client-select" and event.value is not Select.BLANK:
+            self._load_client_defaults(str(event.value))
+
+    @work(thread=True)
+    def _load_client_defaults(self, client_name: str) -> None:
+        """Pre-fill Step 2 COMEX fields from client config."""
+        try:
+            from emissor.config import load_client
+            from emissor.models.client import Client
+
+            client = Client.from_dict(load_client(client_name))
+            self.app.call_from_thread(self._fill_client_fields, client)
+        except Exception:
+            logger.debug("Failed to load client defaults for %s", client_name, exc_info=True)
+
+    def _fill_client_fields(self, client) -> None:
+        self.query_one("#mec-af-comex-p", Select).value = client.mec_af_comex_p
+        self.query_one("#mec-af-comex-t", Select).value = client.mec_af_comex_t
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
-            case "btn-preparar":
-                self._do_prepare()
+            # Step 1
+            case "btn-step1-next":
+                self._validate_step1()
             case "btn-form-voltar" | "btn-result-dashboard" | "btn-modal-close":
                 self.app.pop_screen()
+            # Step 2
+            case "btn-step2-back":
+                self._show_step(1)
+            case "btn-step2-next":
+                self._validate_step2()
+            # Step 3
+            case "btn-step3-back":
+                self._show_step(2)
+            case "btn-preparar":
+                self._do_prepare()
+            # Step 4 (Revisão)
+            case "btn-preview-voltar":
+                self._show_step(3)
             case "btn-enviar":
                 self._do_submit()
             case "btn-salvar":
                 self._do_save_xml()
-            case "btn-preview-voltar":
-                self._show_phase("form")
+            # Result
             case "btn-result-pdf":
                 self._open_pdf()
             case "btn-result-consultar":
                 self._open_query()
+
+    def _validate_step1(self) -> None:
+        from datetime import datetime
+
+        from emissor.utils.validators import validate_date
+
+        error_label = self.query_one("#error-label", Label)
+        error_label.update("")
+        errors: list[str] = []
+
+        client_sel = self.query_one("#client-select", Select)
+        if client_sel.value is Select.BLANK:
+            errors.append("Cliente: selecione um cliente")
+
+        competencia_raw = self.query_one("#competencia", MaskedInput).value.strip()
+        try:
+            dt = datetime.strptime(competencia_raw, "%d/%m/%Y")
+            validate_date(dt.strftime("%Y-%m-%d"))
+        except ValueError:
+            errors.append("Competência: data inválida (DD/MM/AAAA)")
+
+        if errors:
+            error_label.update(" | ".join(errors))
+            return
+
+        self._show_step(2)
+
+    def _validate_step2(self) -> None:
+        error_label = self.query_one("#error-label-step2", Label)
+        error_label.update("")
+        errors: list[str] = []
+
+        if not self.query_one("#x-desc-serv", Input).value.strip():
+            errors.append("Descrição do Serviço: obrigatório")
+        if not self.query_one("#c-trib-nac", Input).value.strip():
+            errors.append("Código Tributação Nacional: obrigatório")
+
+        if errors:
+            error_label.update(" | ".join(errors))
+            return
+
+        self._show_step(3)
 
     def _do_prepare(self) -> None:
         from datetime import datetime
 
         from emissor.utils.validators import validate_date, validate_monetary
 
-        error_label = self.query_one("#error-label", Label)
+        error_label = self.query_one("#error-label-step3", Label)
         error_label.update("")
-
         errors: list[str] = []
-
-        client_sel = self.query_one("#client-select", Select)
-        if client_sel.value is Select.BLANK:
-            errors.append("Cliente: selecione um cliente")
-        else:
-            client_name = str(client_sel.value)
 
         valor_brl = self.query_one("#valor-brl", Input).value.strip()
         valor_usd = self.query_one("#valor-usd", Input).value.strip()
-        competencia_raw = self.query_one("#competencia", MaskedInput).value.strip()
 
         try:
             valor_brl = validate_monetary(valor_brl)
@@ -157,26 +448,62 @@ class NewInvoiceScreen(ModalScreen):
         except ValueError:
             errors.append("Valor USD: valor numérico inválido")
 
-        # Convert DD/MM/YYYY → YYYY-MM-DD
-        try:
-            dt = datetime.strptime(competencia_raw, "%d/%m/%Y")
-            competencia = dt.strftime("%Y-%m-%d")
-            validate_date(competencia)
-        except ValueError:
-            errors.append("Competência: data inválida (DD/MM/AAAA)")
-
         if errors:
             error_label.update(" | ".join(errors))
             return
+
+        # Gather Step 1 data
+        client_name = str(self.query_one("#client-select", Select).value)
+        competencia_raw = self.query_one("#competencia", MaskedInput).value.strip()
+        dt = datetime.strptime(competencia_raw, "%d/%m/%Y")
+        competencia = dt.strftime("%Y-%m-%d")
+        validate_date(competencia)
 
         inter_sel = self.query_one("#intermediario-select", Select)
         intermediario = None
         if inter_sel.value is not Select.BLANK and inter_sel.value != "__none__":
             intermediario = str(inter_sel.value)
 
+        # Gather overrides from Step 2 + Step 3
+        overrides = self._collect_overrides()
+
         self.query_one("#btn-preparar", Button).disabled = True
         self.notify("Preparando NFS-e…", severity="information", timeout=3)
-        self._run_prepare(client_name, valor_brl, valor_usd, competencia, intermediario)
+        self._run_prepare(client_name, valor_brl, valor_usd, competencia, intermediario, overrides)
+
+    def _collect_overrides(self) -> dict[str, str]:
+        """Collect non-empty/non-placeholder override values from Steps 2 and 3."""
+        input_field_map = {
+            "#x-desc-serv": "x_desc_serv",
+            "#c-trib-nac": "c_trib_nac",
+            "#c-nbs": "c_nbs",
+            "#tp-moeda": "tp_moeda",
+            "#c-pais-result": "c_pais_result",
+            "#cst-pis-cofins": "cst_pis_cofins",
+            "#p-tot-trib-fed": "p_tot_trib_fed",
+            "#p-tot-trib-est": "p_tot_trib_est",
+            "#p-tot-trib-mun": "p_tot_trib_mun",
+        }
+        select_field_map = {
+            "#md-prestacao": "md_prestacao",
+            "#vinc-prest": "vinc_prest",
+            "#mec-af-comex-p": "mec_af_comex_p",
+            "#mec-af-comex-t": "mec_af_comex_t",
+            "#mov-temp-bens": "mov_temp_bens",
+            "#mdic": "mdic",
+            "#trib-issqn": "trib_issqn",
+            "#tp-ret-issqn": "tp_ret_issqn",
+        }
+        overrides: dict[str, str] = {}
+        for selector, field_name in input_field_map.items():
+            val = self.query_one(selector, Input).value.strip()
+            if val:
+                overrides[field_name] = val
+        for selector, field_name in select_field_map.items():
+            sel = self.query_one(selector, Select)
+            if sel.value is not Select.BLANK:
+                overrides[field_name] = str(sel.value)
+        return overrides
 
     @work(thread=True)
     def _run_prepare(
@@ -186,6 +513,7 @@ class NewInvoiceScreen(ModalScreen):
         valor_usd: str,
         competencia: str,
         intermediario: str | None,
+        overrides: dict[str, str],
     ) -> None:
         try:
             from emissor.services.emission import prepare
@@ -198,6 +526,7 @@ class NewInvoiceScreen(ModalScreen):
                 competencia=competencia,
                 env=env,
                 intermediario=intermediario,
+                overrides=overrides,
             )
             self._prepared = prepared
             self.app.call_from_thread(
@@ -212,25 +541,47 @@ class NewInvoiceScreen(ModalScreen):
         table = self.query_one("#preview-table", DataTable)
         table.clear(columns=True)
         table.add_columns("Campo", "Valor")
+
+        # Pessoas
         table.add_row("Prestador", f"{prepared.emitter.razao_social} ({prepared.emitter.cnpj})")
         table.add_row("Tomador", f"{prepared.client.nome} (NIF: {prepared.client.nif})")
         if prepared.intermediary:
             inter = prepared.intermediary
             table.add_row("Intermediário", f"{inter.nome} ({inter.nif})")
+        table.add_row("Competência", competencia)
+
+        # Serviço
+        inv = prepared.invoice
+        table.add_row("─── Serviço ───", "")
+        table.add_row("Descrição", inv.x_desc_serv or prepared.emitter.x_desc_serv)
+        table.add_row("cTribNac", inv.c_trib_nac or prepared.emitter.c_trib_nac)
+        table.add_row("cNBS", inv.c_nbs or prepared.emitter.c_nbs)
+        table.add_row("tpMoeda", inv.tp_moeda or prepared.emitter.tp_moeda)
+
+        # Valores
+        table.add_row("─── Valores ───", "")
         table.add_row("Valor BRL", format_brl(valor_brl))
         table.add_row("Valor USD", format_usd(valor_usd))
-        table.add_row("Competência", competencia)
+
+        # Tributação
+        table.add_row("─── Tributação ───", "")
+        table.add_row("tribISSQN", inv.trib_issqn or "3")
+        table.add_row("cPaisResult", inv.c_pais_result or prepared.emitter.c_pais_result)
+
+        # Meta
+        table.add_row("─── Meta ───", "")
         table.add_row("nDPS", str(prepared.n_dps))
         env = self.app.env  # type: ignore[attr-defined]
         table.add_row("Ambiente", env)
 
         self.query_one("#status-label", Label).update("")
-        self._show_phase("preview")
+        self._show_step(4)
         self.notify("NFS-e preparada — revise os dados antes de enviar", timeout=3)
 
     def _set_error(self, msg: str) -> None:
-        self.query_one("#error-label", Label).update(msg)
+        self.query_one("#error-label-step3", Label).update(msg)
         self.query_one("#btn-preparar", Button).disabled = False
+        self._show_step(3)
 
     def _do_submit(self) -> None:
         if not self._prepared:
@@ -241,7 +592,7 @@ class NewInvoiceScreen(ModalScreen):
 
             self.app.push_screen(
                 ConfirmScreen(
-                    "⚠ Você está emitindo uma NFS-e em PRODUÇÃO.\n\n"
+                    "\u26a0 Você está emitindo uma NFS-e em PRODUÇÃO.\n\n"
                     "Esta nota terá validade fiscal e não poderá\n"
                     "ser desfeita.\n\n"
                     "Confirmar envio?"
@@ -285,7 +636,7 @@ class NewInvoiceScreen(ModalScreen):
 
         self._result_ch_nfse = ch_nfse
         self.query_one("#result-info", Label).update(text)
-        self._show_phase("result")
+        self._show_result_phase()
         self.notify("NFS-e emitida com sucesso!", severity="information", timeout=5)
 
     def _set_status(self, msg: str) -> None:
@@ -339,8 +690,24 @@ class NewInvoiceScreen(ModalScreen):
 
         self.app.push_screen(QueryScreen(chave=self._result_ch_nfse))
 
+    def on_key(self, event: Key) -> None:
+        focused = self.app.focused
+        if not isinstance(focused, OptionList):
+            return
+        match event.key:
+            case "j":
+                focused.action_cursor_down()
+            case "k":
+                focused.action_cursor_up()
+            case _:
+                return
+        event.prevent_default()
+        event.stop()
+
     def action_go_back(self) -> None:
-        if self._phase == "preview":
-            self._show_phase("form")
-        else:
+        if self._phase == "result" or self._step == 1:
             self.app.pop_screen()
+        elif self._step == 4:
+            self._show_step(3)
+        else:
+            self._show_step(self._step - 1)
