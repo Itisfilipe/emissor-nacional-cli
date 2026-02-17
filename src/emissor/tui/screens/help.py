@@ -30,7 +30,7 @@ class HelpScreen(ModalScreen):
         log.write("[bold]Emissor Nacional CLI[/bold]")
         log.write("")
         log.write(
-            "Ferramenta para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) "
+            "Ferramenta para emissão de NFS-e (Nota Fiscal de Serviços Eletrônica) "
             "via Sistema Nacional da NFS-e (SEFIN/ADN)."
         )
         log.write("")

@@ -19,9 +19,9 @@ def _check_response(resp: Any, action: str) -> None:
         body = resp.text[:500] if resp.text else ""
         if resp.status_code in ADN_READ.retryable_status_codes:
             raise RetryableHTTPError(
-                f"ADN {action} error ({resp.status_code}): {body}"
+                f"Erro ADN {action} ({resp.status_code}): {body}"
             )
-        raise RuntimeError(f"ADN {action} error ({resp.status_code}): {body}")
+        raise RuntimeError(f"Erro ADN {action} ({resp.status_code}): {body}")
 
 
 def query_nfse(

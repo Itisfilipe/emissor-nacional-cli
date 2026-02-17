@@ -150,7 +150,7 @@ class TestDownloadDanfse:
     @patch("emissor.services.adn_client.get")
     def test_http_error(self, mock_get):
         mock_get.return_value = _mock_response(ok=False, status_code=500, text="Error")
-        with pytest.raises(RuntimeError, match=r"ADN download error.*500"):
+        with pytest.raises(RuntimeError, match=r"Erro ADN download.*500"):
             download_danfse("key", "/cert.pfx", "pass")
 
 

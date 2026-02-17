@@ -30,15 +30,15 @@ class TestValidateMonetary:
         assert validate_monetary("500") == "500.00"
 
     def test_nan_raises(self):
-        with pytest.raises(ValueError, match="invalido"):
+        with pytest.raises(ValueError, match="inválido"):
             validate_monetary("NaN")
 
     def test_infinity_raises(self):
-        with pytest.raises(ValueError, match="invalido"):
+        with pytest.raises(ValueError, match="inválido"):
             validate_monetary("Infinity")
 
     def test_non_numeric_raises(self):
-        with pytest.raises(ValueError, match="invalido"):
+        with pytest.raises(ValueError, match="inválido"):
             validate_monetary("abc")
 
     def test_zero_raises(self):
@@ -61,11 +61,11 @@ class TestValidateDate:
         assert validate_date("2025-12-30") == "2025-12-30"
 
     def test_invalid_raises(self):
-        with pytest.raises(ValueError, match="invalida"):
+        with pytest.raises(ValueError, match="inválida"):
             validate_date("not-a-date")
 
     def test_invalid_month(self):
-        with pytest.raises(ValueError, match="invalida"):
+        with pytest.raises(ValueError, match="inválida"):
             validate_date("2025-13-01")
 
     def test_leap_year(self):
@@ -80,19 +80,19 @@ class TestValidateCTribNac:
         assert validate_c_trib_nac("000000") == "000000"
 
     def test_too_short(self):
-        with pytest.raises(ValueError, match="6 digitos"):
+        with pytest.raises(ValueError, match="6 dígitos"):
             validate_c_trib_nac("01040")
 
     def test_too_long(self):
-        with pytest.raises(ValueError, match="6 digitos"):
+        with pytest.raises(ValueError, match="6 dígitos"):
             validate_c_trib_nac("0104011")
 
     def test_non_numeric(self):
-        with pytest.raises(ValueError, match="6 digitos"):
+        with pytest.raises(ValueError, match="6 dígitos"):
             validate_c_trib_nac("01040a")
 
     def test_empty(self):
-        with pytest.raises(ValueError, match="6 digitos"):
+        with pytest.raises(ValueError, match="6 dígitos"):
             validate_c_trib_nac("")
 
 
@@ -101,15 +101,15 @@ class TestValidateCNbs:
         assert validate_c_nbs("123456789") == "123456789"
 
     def test_too_short(self):
-        with pytest.raises(ValueError, match="9 digitos"):
+        with pytest.raises(ValueError, match="9 dígitos"):
             validate_c_nbs("12345678")
 
     def test_too_long(self):
-        with pytest.raises(ValueError, match="9 digitos"):
+        with pytest.raises(ValueError, match="9 dígitos"):
             validate_c_nbs("1234567890")
 
     def test_non_numeric(self):
-        with pytest.raises(ValueError, match="9 digitos"):
+        with pytest.raises(ValueError, match="9 dígitos"):
             validate_c_nbs("12345678a")
 
 
@@ -121,15 +121,15 @@ class TestValidateTpMoeda:
         assert validate_tp_moeda("978") == "978"
 
     def test_too_short(self):
-        with pytest.raises(ValueError, match="3 digitos"):
+        with pytest.raises(ValueError, match="3 dígitos"):
             validate_tp_moeda("22")
 
     def test_too_long(self):
-        with pytest.raises(ValueError, match="3 digitos"):
+        with pytest.raises(ValueError, match="3 dígitos"):
             validate_tp_moeda("2200")
 
     def test_non_numeric(self):
-        with pytest.raises(ValueError, match="3 digitos"):
+        with pytest.raises(ValueError, match="3 dígitos"):
             validate_tp_moeda("abc")
 
 
@@ -141,15 +141,15 @@ class TestValidateCPaisResult:
         assert validate_c_pais_result("DE") == "DE"
 
     def test_lowercase(self):
-        with pytest.raises(ValueError, match="2 letras maiusculas"):
+        with pytest.raises(ValueError, match="2 letras maiúsculas"):
             validate_c_pais_result("us")
 
     def test_three_chars(self):
-        with pytest.raises(ValueError, match="2 letras maiusculas"):
+        with pytest.raises(ValueError, match="2 letras maiúsculas"):
             validate_c_pais_result("USA")
 
     def test_digits(self):
-        with pytest.raises(ValueError, match="2 letras maiusculas"):
+        with pytest.raises(ValueError, match="2 letras maiúsculas"):
             validate_c_pais_result("12")
 
 
@@ -164,11 +164,11 @@ class TestValidateCstPisCofins:
         assert validate_cst_pis_cofins("99") == "99"
 
     def test_invalid_00(self):
-        with pytest.raises(ValueError, match="codigo invalido"):
+        with pytest.raises(ValueError, match="código inválido"):
             validate_cst_pis_cofins("00")
 
     def test_non_numeric(self):
-        with pytest.raises(ValueError, match="codigo invalido"):
+        with pytest.raises(ValueError, match="código inválido"):
             validate_cst_pis_cofins("ab")
 
 
@@ -194,7 +194,7 @@ class TestValidatePercent:
             validate_percent("100.01")
 
     def test_non_numeric(self):
-        with pytest.raises(ValueError, match="invalido"):
+        with pytest.raises(ValueError, match="inválido"):
             validate_percent("abc")
 
 

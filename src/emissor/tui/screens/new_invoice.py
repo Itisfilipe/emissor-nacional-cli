@@ -406,7 +406,7 @@ class NewInvoiceScreen(ModalScreen):
             if value is not None:
                 self.query_one(selector, Select).value = value
         self.notify(
-            f"Campos carregados da ultima NFS-e para {client_slug}",
+            f"Campos carregados da última NFS-e para {client_slug}",
             severity="information",
             timeout=3,
         )

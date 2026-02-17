@@ -26,7 +26,7 @@ def validate_monetary(value: str) -> str:
         if d <= 0:
             raise ValueError(f"Valor deve ser positivo: '{value}'")
     except InvalidOperation:
-        raise ValueError(f"Valor numerico invalido: '{value}'") from None
+        raise ValueError(f"Valor numérico inválido: '{value}'") from None
     return f"{d:.2f}"
 
 
@@ -39,42 +39,42 @@ def validate_date(value: str) -> str:
     try:
         date.fromisoformat(value)
     except ValueError:
-        raise ValueError(f"Data invalida: '{value}'. Use YYYY-MM-DD.") from None
+        raise ValueError(f"Data inválida: '{value}'. Use YYYY-MM-DD.") from None
     return value
 
 
 def validate_c_trib_nac(value: str) -> str:
     """Validate cTribNac: exactly 6 numeric digits."""
     if not re.fullmatch(r"\d{6}", value):
-        raise ValueError("cTribNac: deve ter 6 digitos numericos")
+        raise ValueError("cTribNac: deve ter 6 dígitos numéricos")
     return value
 
 
 def validate_c_nbs(value: str) -> str:
     """Validate cNBS: exactly 9 numeric digits."""
     if not re.fullmatch(r"\d{9}", value):
-        raise ValueError("cNBS: deve ter 9 digitos numericos")
+        raise ValueError("cNBS: deve ter 9 dígitos numéricos")
     return value
 
 
 def validate_tp_moeda(value: str) -> str:
     """Validate tpMoeda: exactly 3 numeric digits (ISO 4217)."""
     if not re.fullmatch(r"\d{3}", value):
-        raise ValueError("tpMoeda: deve ter 3 digitos numericos (ISO 4217)")
+        raise ValueError("tpMoeda: deve ter 3 dígitos numéricos (ISO 4217)")
     return value
 
 
 def validate_c_pais_result(value: str) -> str:
     """Validate cPaisResult: exactly 2 uppercase letters (ISO 3166-1 alpha-2)."""
     if not re.fullmatch(r"[A-Z]{2}", value):
-        raise ValueError("cPaisResult: deve ter 2 letras maiusculas (ISO 3166-1)")
+        raise ValueError("cPaisResult: deve ter 2 letras maiúsculas (ISO 3166-1)")
     return value
 
 
 def validate_cst_pis_cofins(value: str) -> str:
     """Validate CST PIS/COFINS against known valid codes."""
     if value not in _VALID_CST_PIS_COFINS:
-        raise ValueError("CST PIS/COFINS: codigo invalido")
+        raise ValueError("CST PIS/COFINS: código inválido")
     return value
 
 
@@ -101,7 +101,7 @@ def validate_percent(value: str) -> str:
         if not d.is_finite():
             raise InvalidOperation
     except InvalidOperation:
-        raise ValueError(f"Percentual invalido: '{value}'") from None
+        raise ValueError(f"Percentual inválido: '{value}'") from None
     if d < 0 or d > 100:
         raise ValueError("Percentual deve estar entre 0.00 e 100.00")
     return f"{d:.2f}"

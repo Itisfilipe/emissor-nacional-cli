@@ -53,7 +53,7 @@ class TestEmitNfse:
     @patch("emissor.services.sefin_client.post")
     def test_http_error(self, mock_post):
         mock_post.return_value = _mock_response(ok=False, status_code=400, text="Bad Request")
-        with pytest.raises(RuntimeError, match=r"SEFIN API error.*400"):
+        with pytest.raises(RuntimeError, match=r"Erro na API SEFIN.*400"):
             emit_nfse("b64", "/cert.pfx", "pass")
 
     @patch("emissor.services.sefin_client.post")
@@ -168,7 +168,7 @@ class TestEmitNfseRetry:
     def test_does_not_retry_http_500(self, mock_post):
         """An HTTP response (even 500) means server received request — no retry."""
         mock_post.return_value = _mock_response(ok=False, status_code=500, text="Error")
-        with pytest.raises(RuntimeError, match="SEFIN API error"):
+        with pytest.raises(RuntimeError, match="Erro na API SEFIN"):
             emit_nfse("b64", "/cert.pfx", "pass")
         assert mock_post.call_count == 1
 

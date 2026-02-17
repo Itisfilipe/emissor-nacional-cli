@@ -91,7 +91,7 @@ def emit_nfse(
 
     if not resp.ok:
         body = resp.text[:500] if resp.text else ""
-        raise RuntimeError(f"SEFIN API error ({resp.status_code}): {body}")
+        raise RuntimeError(f"Erro na API SEFIN ({resp.status_code}): {body}")
 
     data = resp.json()
     _validate_response(data)

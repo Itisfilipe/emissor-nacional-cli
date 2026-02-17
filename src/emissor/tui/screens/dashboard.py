@@ -443,7 +443,7 @@ class DashboardScreen(Screen):
             return
         if stem.startswith(("dry_run", "draft_")):
             self.notify(
-                "Rascunho/draft — não pode ser consultado na SEFIN",
+                "Rascunho — não pode ser consultado na SEFIN",
                 severity="warning",
             )
             return
