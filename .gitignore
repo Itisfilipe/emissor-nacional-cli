@@ -14,3 +14,10 @@ config/clients/*.yaml
 .coverage
 htmlcov/
 .DS_Store
+.pytest_cache/
+.ruff_cache/
+.pyright/
+.idea/
+.vscode/
+*.swp
+*~
