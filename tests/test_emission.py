@@ -100,6 +100,12 @@ class TestPrepare:
         # Non-overridden fields stay None
         assert prepared.invoice.c_trib_nac is None
 
+    def test_prepare_fails_when_draft_persistence_fails(self, _patch_emission):
+        """prepare() must propagate add_invoice errors — burned sequences need audit trail."""
+        _patch_emission["mock_add"].side_effect = RuntimeError("disk full")
+        with pytest.raises(RuntimeError, match="disk full"):
+            emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+
 
 class TestSubmit:
     def test_calls_sefin_and_returns_response(self, _patch_emission):

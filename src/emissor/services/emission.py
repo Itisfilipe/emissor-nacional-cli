@@ -83,23 +83,22 @@ def prepare(
         **(overrides or {}),
     )
 
-    # Create draft registry entry immediately after reserving the sequence
-    try:
-        add_invoice(
-            f"draft_{env}_{n_dps}",
-            n_dps=n_dps,
-            client=client.nome,
-            client_slug=client_name,
-            valor_brl=valor_brl,
-            valor_usd=valor_usd,
-            competencia=competencia,
-            emitted_at=dh_emi,
-            env=env,
-            status="preparada",
-            overrides=overrides,
-        )
-    except Exception:
-        logger.warning("Failed to create draft registry entry", exc_info=True)
+    # Create draft registry entry immediately after reserving the sequence.
+    # This MUST succeed — without it the sequence number is burned with no
+    # audit trail, violating P0-06 guarantees.
+    add_invoice(
+        f"draft_{env}_{n_dps}",
+        n_dps=n_dps,
+        client=client.nome,
+        client_slug=client_name,
+        valor_brl=valor_brl,
+        valor_usd=valor_usd,
+        competencia=competencia,
+        emitted_at=dh_emi,
+        env=env,
+        status="preparada",
+        overrides=overrides,
+    )
 
     dps = build_dps(emitter, client, invoice, tp_amb, intermediary)
 
