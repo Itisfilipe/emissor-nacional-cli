@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static
@@ -36,7 +37,10 @@ class ConfirmScreen(ModalScreen[bool]):
     }
     """
 
-    BINDINGS = [("escape", "cancel", "Cancelar")]
+    BINDINGS = [
+        ("escape", "cancel", "Cancelar"),
+        Binding("q", "cancel", show=False),
+    ]
 
     def __init__(self, message: str) -> None:
         super().__init__()

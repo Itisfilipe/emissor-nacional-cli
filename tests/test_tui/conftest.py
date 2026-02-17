@@ -8,8 +8,20 @@ import pytest
 @pytest.fixture
 def mock_config():
     """Patch config-dependent calls so the TUI can launch without real files."""
+    emitter_dict = {
+        "cnpj": "12345678000199",
+        "razao_social": "ACME SOFTWARE LTDA",
+        "logradouro": "RUA DAS FLORES",
+        "numero": "100",
+        "bairro": "CENTRO",
+        "cod_municipio": "4205407",
+        "uf": "SC",
+        "cep": "88000000",
+        "fone": "48999999999",
+        "email": "contato@acme.com.br",
+    }
     with (
-        patch("emissor.config.load_emitter", return_value={"razao_social": "ACME", "cnpj": "123"}),
+        patch("emissor.config.load_emitter", return_value=emitter_dict),
         patch("emissor.config.get_cert_path", return_value="/fake.pfx"),
         patch("emissor.config.get_cert_password", return_value="fakepass"),
         patch(

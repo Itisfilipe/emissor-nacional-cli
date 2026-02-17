@@ -12,6 +12,7 @@ class HelpScreen(ModalScreen):
 
     BINDINGS = [
         Binding("escape", "go_back", "Voltar"),
+        Binding("q", "go_back", show=False),
     ]
 
     def compose(self) -> ComposeResult:
@@ -47,8 +48,7 @@ class HelpScreen(ModalScreen):
         )
         log.write("  [bold cyan]s[/bold cyan]  Sincronizar        Buscar notas do servidor")
         log.write(
-            "  [bold cyan]v[/bold cyan]  Validar            "
-            "Validar certificado e configuração"
+            "  [bold cyan]v[/bold cyan]  Validar            Validar certificado e configuração"
         )
         log.write("  [bold cyan]e[/bold cyan]  Ambiente           Alternar produção/homologação")
         log.write("  [bold cyan]f[/bold cyan]  Filtrar            Focar nos campos de data")
