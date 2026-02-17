@@ -12,6 +12,7 @@ from emissor.utils.registry import (
     list_invoices,
     remove_invoice,
     set_last_nsu,
+    update_invoice,
 )
 
 
@@ -363,3 +364,80 @@ def test_check_registry_health_corrupt_sync_state(tmp_path):
     ):
         health = check_registry_health()
     assert health.sync_state_ok is False
+
+
+# --- update_invoice ---
+
+
+def test_update_invoice_promotes_draft(tmp_path):
+    """update_invoice promotes a draft entry to emitida with a real chave."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        add_invoice(
+            "draft_homologacao_10", n_dps=10, env="homologacao", status="preparada"
+        )
+        result = update_invoice(
+            n_dps=10, env="homologacao", status="emitida", chave="NFSe_REAL_123"
+        )
+        assert result is not None
+        assert result["status"] == "emitida"
+        assert result["chave"] == "NFSe_REAL_123"
+
+
+def test_update_invoice_marks_failure(tmp_path):
+    """update_invoice marks a draft as falha with an error message."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        add_invoice("draft_homologacao_11", n_dps=11, env="homologacao", status="preparada")
+        result = update_invoice(n_dps=11, env="homologacao", status="falha", error="SEFIN 204")
+        assert result is not None
+        assert result["status"] == "falha"
+        assert result["error"] == "SEFIN 204"
+
+
+def test_update_invoice_clears_error_on_promotion(tmp_path):
+    """Promoting a failed entry to emitida clears the error field."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        add_invoice("draft_homologacao_12", n_dps=12, env="homologacao", status="falha")
+        # Manually add error
+        update_invoice(n_dps=12, env="homologacao", error="some error")
+        # Promote to emitida — error should be cleared
+        result = update_invoice(n_dps=12, env="homologacao", status="emitida", chave="NFSe_OK")
+        assert result is not None
+        assert result["status"] == "emitida"
+        assert "error" not in result
+
+
+def test_update_invoice_not_found(tmp_path):
+    """update_invoice returns None when no matching entry exists."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        result = update_invoice(n_dps=999, env="homologacao", status="emitida")
+        assert result is None
+
+
+def test_update_invoice_no_write_when_unchanged(tmp_path):
+    """update_invoice skips disk write when nothing actually changes."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        add_invoice("draft_homologacao_13", n_dps=13, env="homologacao", status="preparada")
+        with patch("emissor.utils.registry._save") as mock_save:
+            # Same status, no chave/error change — should not write
+            update_invoice(n_dps=13, env="homologacao", status="preparada")
+            mock_save.assert_not_called()
