@@ -78,6 +78,13 @@ def validate_cst_pis_cofins(value: str) -> str:
     return value
 
 
+def validate_postal_code(value: str) -> str:
+    """Validate a postal/ZIP code: 3-10 alphanumeric chars, spaces, or hyphens."""
+    if not re.fullmatch(r"[A-Za-z0-9 \-]{3,10}", value):
+        raise ValueError("CEP/Postal: deve ter 3-10 caracteres alfanuméricos")
+    return value
+
+
 def validate_access_key(value: str) -> str:
     """Validate an NFS-e access key: exactly 50 alphanumeric characters."""
     if not re.fullmatch(r"[A-Za-z0-9]{50}", value):

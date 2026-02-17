@@ -318,6 +318,13 @@ class ClientsScreen(ModalScreen):
             errors.append("Estado obrigatório")
         if not v["cep"]:
             errors.append("CEP obrigatório")
+        else:
+            from emissor.utils.validators import validate_postal_code
+
+            try:
+                validate_postal_code(v["cep"])
+            except ValueError as e:
+                errors.append(str(e))
 
         # Check slug uniqueness for new clients
         if not self._editing_slug and not errors:
