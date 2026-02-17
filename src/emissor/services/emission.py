@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import gzip
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import datetime
 
 from lxml import etree
@@ -106,6 +106,21 @@ def prepare(
     )
 
 
+def _extract_overrides(invoice: Invoice) -> dict[str, str] | None:
+    """Extract non-None override fields from an Invoice for registry storage.
+
+    Override fields are all Invoice fields that default to None (i.e. every
+    field beyond the five required ones: valor_brl, valor_usd, competencia,
+    n_dps, dh_emi).
+    """
+    overrides = {
+        f.name: getattr(invoice, f.name)
+        for f in fields(invoice)
+        if f.default is None and getattr(invoice, f.name) is not None
+    }
+    return overrides or None
+
+
 def submit(prepared: PreparedDPS) -> dict:
     """Encode and send prepared DPS to SEFIN.
 
@@ -136,6 +151,7 @@ def submit(prepared: PreparedDPS) -> dict:
     chave = response.get("chNFSe")
     if chave:
         try:
+            overrides = _extract_overrides(prepared.invoice)
             add_invoice(
                 chave,
                 n_dps=prepared.n_dps,
@@ -146,6 +162,7 @@ def submit(prepared: PreparedDPS) -> dict:
                 competencia=prepared.invoice.competencia,
                 emitted_at=prepared.invoice.dh_emi,
                 env=prepared.env,
+                overrides=overrides,
             )
         except Exception:
             logger.warning("Failed to register invoice", exc_info=True)

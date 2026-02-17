@@ -76,6 +76,7 @@ def add_invoice(
     nsu: int | None = None,
     env: str = "producao",
     status: str = "emitida",
+    overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Add an invoice to the registry. Skips if chave already exists."""
     optional = {
@@ -99,6 +100,9 @@ def add_invoice(
                 if value is not None and existing.get(key) is None:
                     existing[key] = value
                     changed = True
+            if overrides and "overrides" not in existing:
+                existing["overrides"] = overrides
+                changed = True
             if changed:
                 _save(entries)
             return existing
@@ -109,6 +113,8 @@ def add_invoice(
             "status": status,
             **{k: v for k, v in optional.items() if v is not None},
         }
+        if overrides:
+            entry["overrides"] = overrides
 
         entries.append(entry)
         _save(entries)
@@ -134,6 +140,34 @@ def remove_invoice(chave: str) -> bool:
             return False
         _save(filtered)
         return True
+
+
+def get_last_overrides(client_slug: str, env: str) -> dict[str, str] | None:
+    """Return override fields from the most recent invoice for a client.
+
+    Prefers same-env matches; falls back to cross-env if none found.
+    Entries without an ``overrides`` key (sync-originated or pre-feature) are
+    skipped.
+    """
+    with _locked():
+        entries = _load()
+
+    # Scan in reverse (most recent first)
+    same_env: dict[str, str] | None = None
+    cross_env: dict[str, str] | None = None
+    for entry in reversed(entries):
+        if entry.get("client_slug") != client_slug:
+            continue
+        overrides = entry.get("overrides")
+        if not overrides:
+            continue
+        if entry.get("env") == env:
+            same_env = overrides
+            break
+        if cross_env is None:
+            cross_env = overrides
+
+    return same_env or cross_env
 
 
 # --- Sync state (last-seen NSU per env) ---
