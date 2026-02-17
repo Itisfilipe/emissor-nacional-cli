@@ -693,13 +693,15 @@ class NewInvoiceScreen(ModalScreen):
         if prepared is None:
             return
         try:
-            from emissor.services.emission import submit
+            from emissor.services.emission import mark_failed, submit
 
             result = submit(prepared)
             self.app.call_from_thread(self._show_result, result)
         except SefinRejectError as e:
+            mark_failed(prepared, str(e))
             self.app.call_from_thread(self._on_submit_error, f"SEFIN rejeitou a NFS-e: {e}")
         except Exception as e:
+            mark_failed(prepared, str(e))
             self.app.call_from_thread(self._on_submit_error, f"Erro ao enviar: {e}")
 
     def _show_result(self, result: dict) -> None:
