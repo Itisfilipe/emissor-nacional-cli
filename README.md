@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/emissor-nacional)](https://pypi.org/project/emissor-nacional/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Ferramenta TUI para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) via o Sistema Nacional da NFS-e (SEFIN/ADN). Voltada para prestadores de serviço que emitem notas para clientes no exterior (exportação de serviços).
+Ferramenta TUI para emissão de NFS-e (Nota Fiscal de Serviços Eletrônica) via Sistema Nacional da NFS-e (SEFIN/ADN). Voltada para prestadores de serviço que emitem notas para clientes no exterior (exportação de serviços).
 
 ## Aviso importante
 
@@ -19,6 +19,7 @@ Ferramenta TUI para emissão de NFS-e (Nota Fiscal de Serviço Eletrônica) via 
 - Consulta de NFS-e emitidas e recebidas via ADN (DFe)
 - Download de DANFSE (PDF) por chave de acesso
 - Sincronização automática com o servidor ADN
+- Gerenciamento de clientes (CRUD)
 - Validação de certificado digital e configuração
 - Suporte a ambientes de homologação e produção
 - Interface TUI interativa com navegação por teclado
@@ -45,7 +46,7 @@ emissor-nacional init
 ### Via fonte (desenvolvimento)
 
 ```bash
-git clone https://github.com/filipeamaral/emissor-nacional-cli.git
+git clone https://github.com/Itisfilipe/emissor-nacional-cli.git
 cd emissor-nacional-cli
 uv sync
 ```
@@ -134,14 +135,16 @@ emissor-nacional
 | Tecla   | Ação                                        |
 | ------- | ------------------------------------------- |
 | `n`     | Nova NFS-e                                  |
+| `r`     | Clonar NFS-e selecionada                    |
 | `c`     | Consultar NFS-e                             |
 | `p`     | Baixar PDF (DANFSE)                         |
 | `y`     | Copiar chave de acesso                      |
 | `s`     | Sincronizar com servidor                    |
+| `l`     | Gerenciar clientes                          |
 | `v`     | Validar certificado e configuração          |
 | `e`     | Alternar ambiente (homologação / produção)  |
+| `f`     | Filtrar                                     |
 | `j`/`k` | Navegar na tabela (estilo vim)              |
-| `f`     | Filtrar por data                            |
 | `h`     | Ajuda                                       |
 | `q`     | Sair                                        |
 

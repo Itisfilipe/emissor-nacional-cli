@@ -5,7 +5,7 @@ Obrigado pelo interesse em contribuir! Este guia explica como participar do proj
 ## Configuração do ambiente
 
 ```bash
-git clone https://github.com/filipeamaral/emissor-nacional-cli.git
+git clone https://github.com/Itisfilipe/emissor-nacional-cli.git
 cd emissor-nacional-cli
 uv sync --group dev
 ```
@@ -41,7 +41,7 @@ O CI roda essas mesmas verificações automaticamente em Python 3.11, 3.12 e 3.1
 
 ## Reportando bugs
 
-Abra uma [issue](https://github.com/filipeamaral/emissor-nacional-cli/issues) com:
+Abra uma [issue](https://github.com/Itisfilipe/emissor-nacional-cli/issues) com:
 
 - Descrição do problema
 - Passos para reprodução

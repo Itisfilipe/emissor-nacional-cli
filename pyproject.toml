@@ -34,9 +34,9 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/filipeamaral/emissor-nacional-cli"
-Issues = "https://github.com/filipeamaral/emissor-nacional-cli/issues"
-Changelog = "https://github.com/filipeamaral/emissor-nacional-cli/blob/main/CHANGELOG.md"
+Repository = "https://github.com/Itisfilipe/emissor-nacional-cli"
+Issues = "https://github.com/Itisfilipe/emissor-nacional-cli/issues"
+Changelog = "https://github.com/Itisfilipe/emissor-nacional-cli/blob/main/CHANGELOG.md"
 
 [project.scripts]
 emissor-nacional = "emissor.cli:main"

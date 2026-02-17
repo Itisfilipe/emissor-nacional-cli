@@ -11,7 +11,7 @@
 Se você encontrar uma vulnerabilidade de segurança neste projeto, **não abra uma issue pública**.
 
 Em vez disso, envie um relatório privado através de
-[GitHub Security Advisories](https://github.com/filipeamaral/emissor-nacional-cli/security/advisories/new).
+[GitHub Security Advisories](https://github.com/Itisfilipe/emissor-nacional-cli/security/advisories/new).
 
 ### O que incluir
 
