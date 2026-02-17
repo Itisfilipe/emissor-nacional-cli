@@ -9,22 +9,39 @@ e este projeto adota [Versionamento Semântico](https://semver.org/).
 
 ### Adicionado
 
-- Validação de CEP no formulário de clientes
-- Coluna de erro na tabela do dashboard
-- URL do endpoint em mensagens de erro de conectividade
-- Verificação de conectividade SEFIN na tela de validação
+- Tela de gerenciamento de clientes com CRUD
+- Preenchimento automático de campos com histórico da última NFS-e
+- Input de data mascarado e validação campo a campo
+- Barra de ações, clone de NFS-e e presets de filtro
+- Diálogo de confirmação para emissão em produção
+- Verificação de conectividade SEFIN e ADN na tela de validação
+- Sync incremental com rastreamento de NSU
+- Auto-sync com notificações visíveis no startup
+- Sequência nDPS separada por ambiente com auto-migração
+- Contrato de resposta SEFIN com `SefinRejectError`
+- Campos de complemento e COMEX na tela de clientes
+- Armazenamento de overrides no registro local
+- Comando `emissor-nacional init` para bootstrapping de configuração
+- GitHub Actions CI e workflow de publicação PyPI
+- Dependabot com actions fixados por SHA
+- Camada HTTP resiliente com retry/backoff para SEFIN e ADN
 - Backup automático e verificação de integridade do registro local
 - Aviso de saúde do registro no dashboard e tela de validação
-- Camada HTTP resiliente com retry/backoff para SEFIN e ADN
 - Validadores de campos fiscais no formulário de nova NFS-e
 - Validação de chave de acesso nas telas de consulta e download
+- Validação de CEP no formulário de clientes
 - Ciclo de vida draft/promote/fail no registro de notas
 - Novos status e filtros no dashboard
 - Campos de override no modelo Invoice e builder DPS
 - Campos Select para campos enumerados (COMEX, etc.)
+- Coluna de erro na tabela do dashboard
+- URL do endpoint em mensagens de erro de conectividade
+- Tooltips, atalho `q` e CSS do wizard
 
 ### Corrigido
 
+- Saída com código não-zero em erros fatais de startup
+- Crash do platformdirs em instalação via pip
 - Normalização de valor percentual no formulário de nova NFS-e
 - Propagação de falhas de persistência de rascunho
 - Validação estrita de resposta SEFIN para cStat e nNFSe ausentes
