@@ -107,7 +107,7 @@ async def test_validate_cert_not_configured(mock_config):
             lines = [str(line) for line in log.lines]
             text = "\n".join(lines)
             assert "ERRO" in text
-            assert "CERT_PFX_PATH" in text or "não definidos" in text
+            assert "não configurado" in text or "emissor-nacional init" in text
 
 
 @pytest.mark.asyncio

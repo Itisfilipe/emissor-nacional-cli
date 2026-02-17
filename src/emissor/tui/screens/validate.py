@@ -30,8 +30,9 @@ class ValidateScreen(ModalScreen):
         self._run_validation()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id in ("btn-voltar", "btn-modal-close"):
-            self.app.pop_screen()
+        match event.button.id:
+            case "btn-voltar" | "btn-modal-close":
+                self.app.pop_screen()
 
     @work(thread=True)
     def _run_validation(self) -> None:
@@ -64,7 +65,8 @@ class ValidateScreen(ModalScreen):
             lines.append(f"   Válido de: {info['not_before']}")
             lines.append(f"   Válido até: {info['not_after']}")
         except KeyError:
-            lines.append("[red]ERRO[/red] CERT_PFX_PATH ou CERT_PFX_PASSWORD não definidos")
+            lines.append("[red]ERRO[/red] Certificado não configurado")
+            lines.append("   Execute 'emissor-nacional init' para configurar")
         except Exception as e:
             lines.append(f"[red]ERRO[/red] Certificado: {e}")
 
@@ -87,35 +89,32 @@ class ValidateScreen(ModalScreen):
         except Exception as e:
             lines.append(f"[red]ERRO[/red] Clientes: {e}")
 
-        # ADN connectivity
+        # API connectivity (ADN + SEFIN)
+        env = self.app.env  # type: ignore[attr-defined]
         if pfx_path and pfx_password:
             try:
                 from emissor.config import ENDPOINTS
                 from emissor.services.adn_client import check_connectivity
-
-                env = self.app.env  # type: ignore[attr-defined]
-                check_connectivity(pfx_path, pfx_password, env)
-                lines.append(f"[green]OK[/green] Conectividade ADN ({env})")
+                from emissor.services.sefin_client import check_sefin_connectivity
             except Exception as e:
-                endpoint = ENDPOINTS.get(env, {}).get("adn", "?")  # type: ignore[possibly-undefined]
-                lines.append(f"[red]ERRO[/red] Conectividade ADN: {e}")
-                lines.append(f"   Endpoint: {endpoint}")
+                lines.append(f"[red]ERRO[/red] Conectividade: {e}")
+                self.app.call_from_thread(self._display_lines, lines)
+                return
+
+            checks = [
+                ("ADN", "adn", lambda: check_connectivity(pfx_path, pfx_password, env)),
+                ("SEFIN", "sefin", lambda: check_sefin_connectivity(pfx_path, pfx_password, env)),
+            ]
+            for label, endpoint_key, check_fn in checks:
+                try:
+                    check_fn()
+                    lines.append(f"[green]OK[/green] Conectividade {label} ({env})")
+                except Exception as e:
+                    endpoint = ENDPOINTS.get(env, {}).get(endpoint_key, "?")
+                    lines.append(f"[red]ERRO[/red] Conectividade {label}: {e}")
+                    lines.append(f"   Endpoint: {endpoint}")
         else:
             lines.append("[red]ERRO[/red] Conectividade ADN: certificado não configurado")
-
-        # SEFIN connectivity
-        if pfx_path and pfx_password:
-            try:
-                from emissor.config import ENDPOINTS
-                from emissor.services.sefin_client import check_sefin_connectivity
-
-                check_sefin_connectivity(pfx_path, pfx_password, env)
-                lines.append(f"[green]OK[/green] Conectividade SEFIN ({env})")
-            except Exception as e:
-                endpoint = ENDPOINTS.get(env, {}).get("sefin", "?")  # type: ignore[possibly-undefined]
-                lines.append(f"[red]ERRO[/red] Conectividade SEFIN: {e}")
-                lines.append(f"   Endpoint: {endpoint}")
-        else:
             lines.append("[red]ERRO[/red] Conectividade SEFIN: certificado não configurado")
 
         # Registry health
