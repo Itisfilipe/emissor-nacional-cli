@@ -136,6 +136,48 @@ def add_invoice(
         return entry
 
 
+def update_invoice(
+    *,
+    n_dps: int,
+    env: str,
+    status: str | None = None,
+    chave: str | None = None,
+    error: str | None = None,
+) -> dict[str, Any] | None:
+    """Update an existing registry entry looked up by n_dps + env.
+
+    Can change status, swap chave (e.g. draft → real key), and store/clear
+    error messages.  Returns the updated entry, or None if not found.
+    """
+    with _locked():
+        entries = _load()
+        target = next(
+            (e for e in entries if e.get("n_dps") == n_dps and e.get("env") == env),
+            None,
+        )
+        if target is None:
+            return None
+
+        changed = False
+        if status is not None and target.get("status") != status:
+            target["status"] = status
+            changed = True
+        if chave is not None and target.get("chave") != chave:
+            target["chave"] = chave
+            changed = True
+        if error is not None and target.get("error") != error:
+            target["error"] = error
+            changed = True
+        # Clear error when promoting to a success status
+        if status == "emitida" and "error" in target:
+            del target["error"]
+            changed = True
+
+        if changed:
+            _save(entries)
+    return target
+
+
 def find_invoice(chave: str, env: str | None = None) -> dict[str, Any] | None:
     """Look up a single invoice by chave, optionally filtered by env."""
     with _locked():
