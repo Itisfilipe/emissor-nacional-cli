@@ -6,6 +6,7 @@ from emissor.utils.registry import (
     add_invoice,
     find_invoice,
     get_last_nsu,
+    get_last_overrides,
     list_invoices,
     remove_invoice,
     set_last_nsu,
@@ -169,3 +170,105 @@ def test_set_last_nsu_overwrites_malformed(tmp_path):
     with patch("emissor.utils.registry._sync_state_path", return_value=sp):
         set_last_nsu("homologacao", 99)
         assert get_last_nsu("homologacao") == 99
+
+
+# --- Overrides storage and get_last_overrides ---
+
+SAMPLE_OVERRIDES = {
+    "x_desc_serv": "Software development",
+    "c_trib_nac": "01.01.01",
+    "trib_issqn": "3",
+    "cst_pis_cofins": "08",
+}
+
+
+def test_add_invoice_stores_overrides(tmp_path):
+    """add_invoice persists overrides dict in registry entry."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        entry = add_invoice(
+            "chave_ov1",
+            client_slug="acme",
+            env="producao",
+            overrides=SAMPLE_OVERRIDES,
+        )
+        assert entry["overrides"] == SAMPLE_OVERRIDES
+
+
+def test_add_invoice_no_overrides_omits_key(tmp_path):
+    """add_invoice without overrides produces entry without 'overrides' key."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        entry = add_invoice("chave_no_ov", client_slug="acme", env="producao")
+        assert "overrides" not in entry
+
+
+def test_get_last_overrides_returns_most_recent(tmp_path):
+    """get_last_overrides returns overrides from the most recent matching entry."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        old_overrides = {"x_desc_serv": "Old description", "trib_issqn": "1"}
+        new_overrides = {"x_desc_serv": "New description", "trib_issqn": "5"}
+        add_invoice("chave_old", client_slug="acme", env="producao", overrides=old_overrides)
+        add_invoice("chave_new", client_slug="acme", env="producao", overrides=new_overrides)
+        result = get_last_overrides("acme", "producao")
+        assert result == new_overrides
+
+
+def test_get_last_overrides_no_history(tmp_path):
+    """get_last_overrides returns None when no entries exist for the client."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        assert get_last_overrides("unknown", "producao") is None
+
+
+def test_get_last_overrides_skips_entries_without_overrides(tmp_path):
+    """Entries without overrides (sync-originated, pre-feature) are skipped."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        add_invoice("chave_sync", client_slug="acme", env="producao")  # no overrides
+        assert get_last_overrides("acme", "producao") is None
+
+
+def test_get_last_overrides_prefers_same_env(tmp_path):
+    """get_last_overrides prefers same-env match over cross-env."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        homolog_overrides = {"trib_issqn": "3"}
+        prod_overrides = {"trib_issqn": "5"}
+        add_invoice("ch_h", client_slug="acme", env="homologacao", overrides=homolog_overrides)
+        add_invoice("ch_p", client_slug="acme", env="producao", overrides=prod_overrides)
+        result = get_last_overrides("acme", "homologacao")
+        assert result == homolog_overrides
+
+
+def test_get_last_overrides_cross_env_fallback(tmp_path):
+    """get_last_overrides falls back to cross-env when no same-env match."""
+    rp = tmp_path / "invoices.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._locked"),
+    ):
+        prod_overrides = {"trib_issqn": "5", "cst_pis_cofins": "08"}
+        add_invoice("ch_prod", client_slug="acme", env="producao", overrides=prod_overrides)
+        # Query for homologacao — no same-env match, falls back to producao
+        result = get_last_overrides("acme", "homologacao")
+        assert result == prod_overrides
