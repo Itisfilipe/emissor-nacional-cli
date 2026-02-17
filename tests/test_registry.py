@@ -3,7 +3,9 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from emissor.utils.registry import (
+    _backup_corrupt,
     add_invoice,
+    check_registry_health,
     find_invoice,
     get_last_nsu,
     get_last_overrides,
@@ -121,7 +123,7 @@ def test_merge_no_write_when_nothing_new(tmp_path):
 
 
 def test_load_malformed_json(tmp_path):
-    """_load() returns empty list when JSON file is corrupt."""
+    """_load() returns empty list and creates backup when JSON file is corrupt."""
     rp = tmp_path / "invoices.json"
     rp.write_text("not valid json {{{")
     with (
@@ -130,6 +132,11 @@ def test_load_malformed_json(tmp_path):
     ):
         result = list_invoices()
         assert result == []
+    # Original file should be gone, backup should exist
+    assert not rp.exists()
+    backups = list(tmp_path.glob("invoices.json.corrupt.*"))
+    assert len(backups) == 1
+    assert backups[0].read_text() == "not valid json {{{"
 
 
 def test_remove_invoice_existing(tmp_path):
@@ -156,20 +163,25 @@ def test_remove_invoice_nonexistent(tmp_path):
 
 
 def test_get_last_nsu_malformed_sync_state(tmp_path):
-    """get_last_nsu returns 0 when sync state file has bad JSON."""
+    """get_last_nsu returns 0 and creates backup when sync state file has bad JSON."""
     sp = tmp_path / "sync.json"
     sp.write_text("not json")
     with patch("emissor.utils.registry._sync_state_path", return_value=sp):
         assert get_last_nsu("homologacao") == 0
+    assert not sp.exists()
+    backups = list(tmp_path.glob("sync.json.corrupt.*"))
+    assert len(backups) == 1
 
 
 def test_set_last_nsu_overwrites_malformed(tmp_path):
-    """set_last_nsu recovers from corrupt sync state file."""
+    """set_last_nsu recovers from corrupt sync state file and creates backup."""
     sp = tmp_path / "sync.json"
     sp.write_text("not json")
     with patch("emissor.utils.registry._sync_state_path", return_value=sp):
         set_last_nsu("homologacao", 99)
         assert get_last_nsu("homologacao") == 99
+    backups = list(tmp_path.glob("sync.json.corrupt.*"))
+    assert len(backups) == 1
 
 
 # --- Overrides storage and get_last_overrides ---
@@ -272,3 +284,82 @@ def test_get_last_overrides_cross_env_fallback(tmp_path):
         # Query for homologacao — no same-env match, falls back to producao
         result = get_last_overrides("acme", "homologacao")
         assert result == prod_overrides
+
+
+# --- _backup_corrupt and check_registry_health ---
+
+
+def test_backup_corrupt_creates_timestamped_file(tmp_path):
+    """_backup_corrupt renames file to .corrupt.{timestamp} and returns backup path."""
+    f = tmp_path / "test.json"
+    f.write_text("bad data")
+    backup = _backup_corrupt(f)
+    assert not f.exists()
+    assert backup.exists()
+    assert backup.read_text() == "bad data"
+    assert "test.json.corrupt." in backup.name
+
+
+def test_check_registry_health_ok(tmp_path):
+    """check_registry_health reports healthy when files are valid."""
+    rp = tmp_path / "invoices.json"
+    sp = tmp_path / "sync_state.json"
+    rp.write_text('[{"chave": "a"}, {"chave": "b"}]')
+    sp.write_text('{"homologacao": 42}')
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._sync_state_path", return_value=sp),
+    ):
+        health = check_registry_health()
+    assert health.registry_ok is True
+    assert health.registry_count == 2
+    assert health.registry_corrupt_backups == []
+    assert health.sync_state_ok is True
+    assert health.sync_state_corrupt_backups == []
+
+
+def test_check_registry_health_corrupt_registry(tmp_path):
+    """check_registry_health detects corrupt registry file."""
+    rp = tmp_path / "invoices.json"
+    rp.write_text("not json")
+    sp = tmp_path / "sync_state.json"
+    sp.write_text('{"homologacao": 0}')
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._sync_state_path", return_value=sp),
+    ):
+        health = check_registry_health()
+    assert health.registry_ok is False
+    assert health.registry_count == 0
+
+
+def test_check_registry_health_finds_backups(tmp_path):
+    """check_registry_health picks up existing .corrupt.* backup files."""
+    rp = tmp_path / "invoices.json"
+    rp.write_text("[]")
+    # Create fake backup files
+    (tmp_path / "invoices.json.corrupt.20260101T000000").write_text("old corrupt")
+    (tmp_path / "invoices.json.corrupt.20260201T000000").write_text("newer corrupt")
+    sp = tmp_path / "sync_state.json"
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._sync_state_path", return_value=sp),
+    ):
+        health = check_registry_health()
+    assert health.registry_ok is True
+    assert len(health.registry_corrupt_backups) == 2
+    assert health.registry_corrupt_backups[0] == "invoices.json.corrupt.20260101T000000"
+    assert health.registry_corrupt_backups[1] == "invoices.json.corrupt.20260201T000000"
+
+
+def test_check_registry_health_corrupt_sync_state(tmp_path):
+    """check_registry_health detects corrupt sync state file."""
+    rp = tmp_path / "invoices.json"
+    sp = tmp_path / "sync_state.json"
+    sp.write_text("{broken")
+    with (
+        patch("emissor.utils.registry._registry_path", return_value=rp),
+        patch("emissor.utils.registry._sync_state_path", return_value=sp),
+    ):
+        health = check_registry_health()
+    assert health.sync_state_ok is False
