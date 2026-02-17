@@ -71,11 +71,18 @@ class DashboardScreen(Screen):
         with Horizontal(id="filter-bar"):
             yield Static("Notas Fiscais", id="section-title")
             yield Select(
-                [("Todas", "todas"), ("Emitidas", "emitida"), ("Recebidas", "recebida")],
+                [
+                    ("Todas", "todas"),
+                    ("Emitidas", "emitida"),
+                    ("Recebidas", "recebida"),
+                    ("Preparadas", "preparada"),
+                    ("Rascunhos", "rascunho"),
+                    ("Falhas", "falha"),
+                ],
                 value="todas",
                 allow_blank=False,
                 id="filter-tipo",
-                tooltip="Filtrar por tipo: emitida, recebida ou todas",
+                tooltip="Filtrar por tipo: emitida, recebida, preparada, rascunho, falha ou todas",
             )
             yield Select(
                 [("Todos", "todos"), ("Hoje", "hoje"), ("Semana", "semana"), ("M\u00eas", "mes")],
@@ -233,11 +240,15 @@ class DashboardScreen(Screen):
         env = self.app.env  # type: ignore[attr-defined]
         invoices: list[dict] = []
         seen_keys: set[str] = set()
+        seen_n_dps: set[int] = set()
 
-        # 1) Registry invoices (emitida + recebida from sync)
+        # 1) Registry invoices (all statuses)
         for entry in list_invoices(env):
             chave = entry.get("chave", "")
             seen_keys.add(chave)
+            n_dps = entry.get("n_dps")
+            if n_dps is not None:
+                seen_n_dps.add(n_dps)
             dt = self._parse_date(entry.get("emitted_at") or entry.get("competencia") or "")
             invoices.append(
                 {
@@ -256,6 +267,14 @@ class DashboardScreen(Screen):
             for f in issued_dir.glob("*.xml"):
                 if f.stem in seen_keys:
                     continue
+                # Skip dry_run files whose n_dps is already tracked in registry
+                if f.stem.startswith("dry_run_dps_"):
+                    try:
+                        file_n_dps = int(f.stem.removeprefix("dry_run_dps_"))
+                        if file_n_dps in seen_n_dps:
+                            continue
+                    except ValueError:
+                        pass
                 mtime = f.stat().st_mtime
                 dt = datetime.fromtimestamp(mtime, tz=BRT)
                 invoices.append(
@@ -293,10 +312,8 @@ class DashboardScreen(Screen):
 
         # Filter by type
         tipo = self.query_one("#filter-tipo", Select).value
-        if tipo == "emitida":
-            filtered = [i for i in filtered if i["tipo"] == "emitida"]
-        elif tipo == "recebida":
-            filtered = [i for i in filtered if i["tipo"] == "recebida"]
+        if tipo != "todas":
+            filtered = [i for i in filtered if i["tipo"] == tipo]
 
         # Check custom date inputs first
         de_input = self.query_one("#filter-de", MaskedInput)
@@ -356,6 +373,8 @@ class DashboardScreen(Screen):
             "emitida": "[green]emitida[/green]",
             "recebida": "[blue]recebida[/blue]",
             "rascunho": "[yellow]rascunho[/yellow]",
+            "preparada": "[dim]preparada[/dim]",
+            "falha": "[red]falha[/red]",
         }
 
         for inv in invoices:
@@ -417,9 +436,9 @@ class DashboardScreen(Screen):
         stem = self._selected_stem()
         if not stem:
             return
-        if stem.startswith("dry_run"):
+        if stem.startswith(("dry_run", "draft_")):
             self.notify(
-                "Rascunho (dry_run) — não pode ser consultado na SEFIN",
+                "Rascunho/draft — não pode ser consultado na SEFIN",
                 severity="warning",
             )
             return
@@ -482,14 +501,14 @@ class DashboardScreen(Screen):
 
     def action_query(self) -> None:
         stem = self._selected_stem()
-        chave = stem if stem and not stem.startswith("dry_run") else ""
+        chave = stem if stem and not stem.startswith(("dry_run", "draft_")) else ""
         from emissor.tui.screens.query import QueryScreen
 
         self.app.push_screen(QueryScreen(chave=chave))
 
     def action_download_pdf(self) -> None:
         stem = self._selected_stem()
-        chave = stem if stem and not stem.startswith("dry_run") else ""
+        chave = stem if stem and not stem.startswith(("dry_run", "draft_")) else ""
         from emissor.tui.screens.download_pdf import DownloadPdfScreen
 
         self.app.push_screen(DownloadPdfScreen(chave=chave))
