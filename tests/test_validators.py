@@ -194,3 +194,41 @@ class TestValidatePercent:
     def test_non_numeric(self):
         with pytest.raises(ValueError, match="invalido"):
             validate_percent("abc")
+
+
+class TestValidateAccessKey:
+    def test_valid_50_chars(self):
+        from emissor.utils.validators import validate_access_key
+
+        key = "A" * 50
+        assert validate_access_key(key) == key
+
+    def test_valid_alphanumeric(self):
+        from emissor.utils.validators import validate_access_key
+
+        key = "aB3" * 16 + "xY"  # 50 chars
+        assert validate_access_key(key) == key
+
+    def test_too_short(self):
+        from emissor.utils.validators import validate_access_key
+
+        with pytest.raises(ValueError, match="50 caracteres"):
+            validate_access_key("A" * 49)
+
+    def test_too_long(self):
+        from emissor.utils.validators import validate_access_key
+
+        with pytest.raises(ValueError, match="50 caracteres"):
+            validate_access_key("A" * 51)
+
+    def test_special_chars(self):
+        from emissor.utils.validators import validate_access_key
+
+        with pytest.raises(ValueError, match="50 caracteres"):
+            validate_access_key("A" * 49 + "-")
+
+    def test_empty(self):
+        from emissor.utils.validators import validate_access_key
+
+        with pytest.raises(ValueError, match="50 caracteres"):
+            validate_access_key("")

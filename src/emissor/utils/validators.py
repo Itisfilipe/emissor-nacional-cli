@@ -78,6 +78,15 @@ def validate_cst_pis_cofins(value: str) -> str:
     return value
 
 
+def validate_access_key(value: str) -> str:
+    """Validate an NFS-e access key: exactly 50 alphanumeric characters."""
+    if not re.fullmatch(r"[A-Za-z0-9]{50}", value):
+        raise ValueError(
+            "Chave de acesso: deve ter exatamente 50 caracteres alfanuméricos"
+        )
+    return value
+
+
 def validate_percent(value: str) -> str:
     """Validate and normalize a percentage value (0.00-100.00)."""
     try:
