@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
-from requests_pkcs12 import post
+from requests_pkcs12 import get, post
 
 from emissor.config import ENDPOINTS, SEFIN_TIMEOUT
 from emissor.services.exceptions import SefinRejectError
@@ -94,3 +94,27 @@ def emit_nfse(
     data = resp.json()
     _validate_response(data)
     return data
+
+
+def check_sefin_connectivity(
+    pfx_path: str,
+    pfx_password: str,
+    env: str = "homologacao",
+) -> None:
+    """Test SEFIN API connectivity via mTLS GET to the submit endpoint.
+
+    A non-200 response (e.g. 405) is expected and acceptable — it proves
+    the endpoint is reachable and the TLS handshake succeeded.
+    Raises on connection or timeout errors.
+    """
+    url = ENDPOINTS[env]["sefin"]
+
+    def _do_get():
+        return get(
+            url,
+            pkcs12_filename=pfx_path,
+            pkcs12_password=pfx_password,
+            timeout=SEFIN_TIMEOUT,
+        )
+
+    retry_call(_do_get, SEFIN_SUBMIT)
