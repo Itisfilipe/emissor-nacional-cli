@@ -22,7 +22,7 @@ Turn the current app into a production-hardened emitter for NFS-e export workflo
 
 ## P0 - Critical
 
-### P0-01 - Enforce SEFIN response contract before success UI
+### P0-01 - Enforce SEFIN response contract before success UI ✅
 Problem:
 - Emission can show success even when key fields are missing in API response. `submit()` in `emission.py` returns a result dict regardless of whether `chNFSe` is present — the TUI then displays "N/A" but frames it as a successful emission.
 
@@ -284,7 +284,7 @@ Acceptance criteria:
 
 ## Recommended Execution Order
 
-1. P0-01 (response contract — prevents silent fiscal errors)
+1. ~~P0-01 (response contract — prevents silent fiscal errors)~~ Done
 2. P0-04 (registry backup — quick win, protects data before other changes)
 3. P0-06 (draft entries — complements P0-01, closes audit gaps)
 4. P0-02 (input validation — first pass on XML-critical fields)
