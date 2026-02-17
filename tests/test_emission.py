@@ -30,11 +30,16 @@ def _patch_emission(monkeypatch, tmp_path, emitter_dict, client_dict):
         patch.object(emission_mod, "emit_nfse", return_value={"chNFSe": "NFSe123"}) as mock_emit,
         patch.object(emission_mod, "next_n_dps", return_value=42) as mock_next,
         patch.object(emission_mod, "_now_brt", return_value="2025-12-30T15:00:00-03:00"),
-        patch.object(emission_mod, "add_invoice", return_value={}),
+        patch.object(emission_mod, "add_invoice", return_value={}) as mock_add,
+        patch.object(
+            emission_mod, "update_invoice", return_value={"status": "emitida"}
+        ) as mock_update,
     ):
         yield {
             "mock_emit_nfse": mock_emit,
             "mock_next": mock_next,
+            "mock_add": mock_add,
+            "mock_update": mock_update,
             "tmp_path": tmp_path,
         }
 
@@ -123,8 +128,8 @@ class TestSubmit:
         assert saved.exists()
         assert saved.read_bytes() == b"<nfse>test</nfse>"
 
-    def test_submit_passes_overrides_to_registry(self, _patch_emission):
-        """submit() extracts override fields and passes them to add_invoice."""
+    def test_submit_passes_overrides_to_registry_on_fallback(self, _patch_emission):
+        """submit() falls back to add_invoice with overrides when no draft found."""
         prepared = emission_mod.prepare(
             "acme",
             "1000.00",
@@ -132,8 +137,11 @@ class TestSubmit:
             "2025-12-30",
             overrides={"trib_issqn": "5", "x_desc_serv": "Custom"},
         )
-        # Replace add_invoice mock to capture the call
-        with patch.object(emission_mod, "add_invoice", return_value={}) as mock_add:
+        # update_invoice returns None → triggers add_invoice fallback
+        with (
+            patch.object(emission_mod, "update_invoice", return_value=None),
+            patch.object(emission_mod, "add_invoice", return_value={}) as mock_add,
+        ):
             emission_mod.submit(prepared)
             mock_add.assert_called_once()
             call_kwargs = mock_add.call_args[1]
@@ -175,3 +183,60 @@ class TestSaveXml:
         _patch_emission["mock_next"].reset_mock()
         emission_mod.save_xml(prepared)
         _patch_emission["mock_next"].assert_not_called()
+
+
+class TestDraftAndPromote:
+    def test_prepare_creates_draft_entry(self, _patch_emission):
+        """prepare() calls add_invoice with status='preparada' after reserving sequence."""
+        emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        mock_add = _patch_emission["mock_add"]
+        # Find the call with status="preparada" (draft creation)
+        draft_calls = [
+            c for c in mock_add.call_args_list if c[1].get("status") == "preparada"
+        ]
+        assert len(draft_calls) == 1
+        call_kwargs = draft_calls[0][1]
+        assert call_kwargs["n_dps"] == 42
+        assert call_kwargs["env"] == "homologacao"
+        # Positional arg is the synthetic chave
+        assert draft_calls[0][0][0] == "draft_homologacao_42"
+
+    def test_submit_promotes_draft(self, _patch_emission):
+        """submit() calls update_invoice with status='emitida' and real chave."""
+        prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        emission_mod.submit(prepared)
+        mock_update = _patch_emission["mock_update"]
+        mock_update.assert_called_once_with(
+            n_dps=42, env="homologacao", status="emitida", chave="NFSe123"
+        )
+
+    def test_submit_fallback_when_no_draft(self, _patch_emission):
+        """submit() falls back to add_invoice when update_invoice returns None."""
+        prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        _patch_emission["mock_update"].return_value = None
+        _patch_emission["mock_add"].reset_mock()
+        emission_mod.submit(prepared)
+        # add_invoice should be called with the real chave
+        fallback_calls = [
+            c for c in _patch_emission["mock_add"].call_args_list if c[0][0] == "NFSe123"
+        ]
+        assert len(fallback_calls) == 1
+
+    def test_save_xml_updates_to_rascunho(self, _patch_emission):
+        """save_xml() calls update_invoice with status='rascunho'."""
+        prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        _patch_emission["mock_update"].reset_mock()
+        emission_mod.save_xml(prepared)
+        _patch_emission["mock_update"].assert_called_once_with(
+            n_dps=42, env="homologacao", status="rascunho"
+        )
+
+    def test_mark_failed_updates_registry(self, _patch_emission):
+        """mark_failed() calls update_invoice with status='falha' and truncated error."""
+        prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        _patch_emission["mock_update"].reset_mock()
+        long_error = "x" * 600
+        emission_mod.mark_failed(prepared, long_error)
+        _patch_emission["mock_update"].assert_called_once_with(
+            n_dps=42, env="homologacao", status="falha", error="x" * 500
+        )
