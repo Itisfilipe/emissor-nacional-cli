@@ -145,6 +145,56 @@ def test_custom_service_fields_in_xml(client):
     assert xml_text(dps, "infDPS/valores/trib/tribMun/cPaisResult") == "DE"
 
 
+def test_invoice_overrides_take_precedence(emitter, client):
+    """Invoice-level overrides replace emitter/client/default values in XML."""
+    invoice = Invoice(
+        valor_brl="1000.00",
+        valor_usd="200.00",
+        competencia="2025-06-01",
+        n_dps=1,
+        dh_emi="2025-06-01T10:00:00-03:00",
+        x_desc_serv="Override Service Desc",
+        c_trib_nac="999999",
+        c_nbs="888888888",
+        md_prestacao="2",
+        vinc_prest="1",
+        tp_moeda="978",
+        mec_af_comex_p="03",
+        mec_af_comex_t="04",
+        mov_temp_bens="2",
+        mdic="1",
+        c_pais_result="DE",
+        trib_issqn="5",
+        tp_ret_issqn="2",
+        cst_pis_cofins="99",
+        p_tot_trib_fed="1.50",
+        p_tot_trib_est="2.50",
+        p_tot_trib_mun="3.50",
+    )
+    dps = build_dps(emitter, client, invoice, tp_amb="2")
+
+    # Service overrides
+    assert xml_text(dps, "infDPS/serv/cServ/xDescServ") == "Override Service Desc"
+    assert xml_text(dps, "infDPS/serv/cServ/cTribNac") == "999999"
+    assert xml_text(dps, "infDPS/serv/cServ/cNBS") == "888888888"
+    assert xml_text(dps, "infDPS/serv/comExt/mdPrestacao") == "2"
+    assert xml_text(dps, "infDPS/serv/comExt/vincPrest") == "1"
+    assert xml_text(dps, "infDPS/serv/comExt/tpMoeda") == "978"
+    assert xml_text(dps, "infDPS/serv/comExt/mecAFComexP") == "03"
+    assert xml_text(dps, "infDPS/serv/comExt/mecAFComexT") == "04"
+    assert xml_text(dps, "infDPS/serv/comExt/movTempBens") == "2"
+    assert xml_text(dps, "infDPS/serv/comExt/mdic") == "1"
+
+    # Tax overrides
+    assert xml_text(dps, "infDPS/valores/trib/tribMun/tribISSQN") == "5"
+    assert xml_text(dps, "infDPS/valores/trib/tribMun/cPaisResult") == "DE"
+    assert xml_text(dps, "infDPS/valores/trib/tribMun/tpRetISSQN") == "2"
+    assert xml_text(dps, "infDPS/valores/trib/tribFed/piscofins/CST") == "99"
+    assert xml_text(dps, "infDPS/valores/trib/totTrib/pTotTrib/pTotTribFed") == "1.50"
+    assert xml_text(dps, "infDPS/valores/trib/totTrib/pTotTrib/pTotTribEst") == "2.50"
+    assert xml_text(dps, "infDPS/valores/trib/totTrib/pTotTrib/pTotTribMun") == "3.50"
+
+
 def test_dps_element_order_matches_reference(emitter, client_with_complement, intermediary):
     """Verify the element order in infDPS matches the SEFIN schema."""
     invoice = Invoice(

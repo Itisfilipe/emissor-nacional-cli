@@ -4,6 +4,7 @@ import pytest
 
 from emissor.models.client import Client, Intermediary
 from emissor.models.emitter import Emitter
+from emissor.models.invoice import Invoice
 
 # --- Emitter ---
 
@@ -172,3 +173,26 @@ class TestInvoice:
     def test_frozen(self, sample_invoice):
         with pytest.raises(AttributeError):
             sample_invoice.valor_brl = "0"
+
+    def test_override_fields_default_to_none(self, sample_invoice):
+        assert sample_invoice.x_desc_serv is None
+        assert sample_invoice.c_trib_nac is None
+        assert sample_invoice.trib_issqn is None
+        assert sample_invoice.p_tot_trib_fed is None
+
+    def test_override_fields_store_values(self):
+        inv = Invoice(
+            valor_brl="1000.00",
+            valor_usd="200.00",
+            competencia="2025-12-30",
+            n_dps=1,
+            dh_emi="2025-12-30T15:00:00-03:00",
+            x_desc_serv="Custom Service",
+            trib_issqn="5",
+            c_pais_result="DE",
+        )
+        assert inv.x_desc_serv == "Custom Service"
+        assert inv.trib_issqn == "5"
+        assert inv.c_pais_result == "DE"
+        # Non-set overrides remain None
+        assert inv.c_trib_nac is None

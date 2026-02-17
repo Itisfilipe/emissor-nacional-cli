@@ -81,6 +81,19 @@ class TestPrepare:
             assert prepared.intermediary is not None
             assert prepared.intermediary.nome == "GLOBAL PAYMENTS INC"
 
+    def test_overrides_passed_to_invoice(self, _patch_emission):
+        prepared = emission_mod.prepare(
+            "acme",
+            "1000.00",
+            "200.00",
+            "2025-12-30",
+            overrides={"trib_issqn": "5", "x_desc_serv": "Custom"},
+        )
+        assert prepared.invoice.trib_issqn == "5"
+        assert prepared.invoice.x_desc_serv == "Custom"
+        # Non-overridden fields stay None
+        assert prepared.invoice.c_trib_nac is None
+
 
 class TestSubmit:
     def test_calls_sefin_and_returns_response(self, _patch_emission):
