@@ -95,7 +95,7 @@ Dependencies:
 
 Note: This is a quick win (few hours of work) and should be prioritized ahead of P0-03 in execution order.
 
-### P0-05 - Extend validation screen with SEFIN preflight
+### ~~P0-05 - Extend validation screen with SEFIN preflight~~ Done
 Problem:
 - Validation checks ADN connectivity, but not SEFIN submit path health.
 
@@ -289,7 +289,7 @@ Acceptance criteria:
 3. ~~P0-06 (draft entries — complements P0-01, closes audit gaps)~~ Done
 4. ~~P0-02 (input validation — first pass on XML-critical fields)~~ Done
 5. ~~P0-03 (HTTP resilience — ADN-only retries first, then SEFIN connection-level)~~ Done
-6. P0-05 (SEFIN preflight — builds on P0-03)
+6. ~~P0-05 (SEFIN preflight — builds on P0-03)~~ Done
 7. P1-06 (auto-prefill TUI test — quick, closes testing gap)
 8. P1-03 (client/intermediary separation)
 9. P1-05 phase 1 (file permission checks)
