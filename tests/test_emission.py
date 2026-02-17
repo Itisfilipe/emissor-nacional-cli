@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from emissor.services import emission as emission_mod
+from emissor.services.exceptions import SefinRejectError
 
 
 @pytest.fixture
@@ -121,6 +122,44 @@ class TestSubmit:
         saved = Path(result["saved_to"])
         assert saved.exists()
         assert saved.read_bytes() == b"<nfse>test</nfse>"
+
+    def test_submit_passes_overrides_to_registry(self, _patch_emission):
+        """submit() extracts override fields and passes them to add_invoice."""
+        prepared = emission_mod.prepare(
+            "acme",
+            "1000.00",
+            "200.00",
+            "2025-12-30",
+            overrides={"trib_issqn": "5", "x_desc_serv": "Custom"},
+        )
+        # Replace add_invoice mock to capture the call
+        with patch.object(emission_mod, "add_invoice", return_value={}) as mock_add:
+            emission_mod.submit(prepared)
+            mock_add.assert_called_once()
+            call_kwargs = mock_add.call_args[1]
+            assert call_kwargs["overrides"] is not None
+            assert call_kwargs["overrides"]["trib_issqn"] == "5"
+            assert call_kwargs["overrides"]["x_desc_serv"] == "Custom"
+
+
+class TestSubmitRejection:
+    def test_submit_propagates_reject(self, _patch_emission):
+        _patch_emission["mock_emit_nfse"].side_effect = SefinRejectError(
+            "cStat 204: Rejeicao", response={"cStat": "204"}
+        )
+        prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        with pytest.raises(SefinRejectError, match="cStat 204"):
+            emission_mod.submit(prepared)
+
+    def test_no_registry_on_rejection(self, _patch_emission):
+        _patch_emission["mock_emit_nfse"].side_effect = SefinRejectError("rejected")
+        prepared = emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
+        with (
+            patch.object(emission_mod, "add_invoice") as mock_add,
+            pytest.raises(SefinRejectError),
+        ):
+            emission_mod.submit(prepared)
+        mock_add.assert_not_called()
 
 
 class TestSaveXml:
