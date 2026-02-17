@@ -349,8 +349,8 @@ def test_check_registry_health_finds_backups(tmp_path):
         health = check_registry_health()
     assert health.registry_ok is True
     assert len(health.registry_corrupt_backups) == 2
-    assert health.registry_corrupt_backups[0] == "invoices.json.corrupt.20260101T000000"
-    assert health.registry_corrupt_backups[1] == "invoices.json.corrupt.20260201T000000"
+    assert health.registry_corrupt_backups[0].endswith("invoices.json.corrupt.20260101T000000")
+    assert health.registry_corrupt_backups[1].endswith("invoices.json.corrupt.20260201T000000")
 
 
 def test_check_registry_health_corrupt_sync_state(tmp_path):

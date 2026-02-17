@@ -300,7 +300,7 @@ def check_registry_health() -> RegistryHealth:
             registry_ok = False
     if rp.parent.exists():
         registry_backups = sorted(
-            str(p.name) for p in rp.parent.glob(f"{rp.name}.corrupt.*")
+            str(p) for p in rp.parent.glob(f"{rp.name}.corrupt.*")
         )
     else:
         registry_backups = []
@@ -314,7 +314,7 @@ def check_registry_health() -> RegistryHealth:
             sync_ok = False
     if sp.parent.exists():
         sync_backups = sorted(
-            str(p.name) for p in sp.parent.glob(f"{sp.name}.corrupt.*")
+            str(p) for p in sp.parent.glob(f"{sp.name}.corrupt.*")
         )
     else:
         sync_backups = []

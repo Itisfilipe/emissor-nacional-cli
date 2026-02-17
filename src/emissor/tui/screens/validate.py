@@ -125,10 +125,12 @@ class ValidateScreen(ModalScreen):
                 lines.append("[red]ERRO[/red] Registro local: arquivo corrompido")
             for b in health.registry_corrupt_backups:
                 lines.append(f"[yellow]AVISO[/yellow] Backup encontrado: {b}")
+                lines.append("   Recuperação: renomear para invoices.json e reiniciar")
             if not health.sync_state_ok:
                 lines.append("[red]ERRO[/red] Estado de sincronização: arquivo corrompido")
             for b in health.sync_state_corrupt_backups:
                 lines.append(f"[yellow]AVISO[/yellow] Backup sync: {b}")
+                lines.append("   Recuperação: renomear para sync_state.json e reiniciar")
         except Exception as e:
             lines.append(f"[red]ERRO[/red] Registro local: {e}")
 
