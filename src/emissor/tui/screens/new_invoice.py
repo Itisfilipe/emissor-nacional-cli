@@ -468,6 +468,13 @@ class NewInvoiceScreen(ModalScreen):
         self._show_step(2)
 
     def _validate_step2(self) -> None:
+        from emissor.utils.validators import (
+            validate_c_nbs,
+            validate_c_pais_result,
+            validate_c_trib_nac,
+            validate_tp_moeda,
+        )
+
         error_label = self.query_one("#error-label-step2", Label)
         error_label.update("")
         errors: list[str] = []
@@ -476,6 +483,19 @@ class NewInvoiceScreen(ModalScreen):
             errors.append("Descrição do Serviço: obrigatório")
         if not self.query_one("#c-trib-nac", Input).value.strip():
             errors.append("Código Tributação Nacional: obrigatório")
+
+        for selector, validator in (
+            ("#c-trib-nac", validate_c_trib_nac),
+            ("#c-nbs", validate_c_nbs),
+            ("#tp-moeda", validate_tp_moeda),
+            ("#c-pais-result", validate_c_pais_result),
+        ):
+            val = self.query_one(selector, Input).value.strip()
+            if val:
+                try:
+                    validator(val)
+                except ValueError as e:
+                    errors.append(str(e))
 
         if errors:
             error_label.update(" | ".join(errors))
@@ -486,7 +506,12 @@ class NewInvoiceScreen(ModalScreen):
     def _do_prepare(self) -> None:
         from datetime import datetime
 
-        from emissor.utils.validators import validate_date, validate_monetary
+        from emissor.utils.validators import (
+            validate_cst_pis_cofins,
+            validate_date,
+            validate_monetary,
+            validate_percent,
+        )
 
         error_label = self.query_one("#error-label-step3", Label)
         error_label.update("")
@@ -504,6 +529,21 @@ class NewInvoiceScreen(ModalScreen):
             valor_usd = validate_monetary(valor_usd)
         except ValueError:
             errors.append("Valor USD: valor numérico inválido")
+
+        cst = self.query_one("#cst-pis-cofins", Input).value.strip()
+        if cst:
+            try:
+                validate_cst_pis_cofins(cst)
+            except ValueError as e:
+                errors.append(str(e))
+
+        for selector in ("#p-tot-trib-fed", "#p-tot-trib-est", "#p-tot-trib-mun"):
+            val = self.query_one(selector, Input).value.strip()
+            if val:
+                try:
+                    validate_percent(val)
+                except ValueError as e:
+                    errors.append(str(e))
 
         if errors:
             error_label.update(" | ".join(errors))

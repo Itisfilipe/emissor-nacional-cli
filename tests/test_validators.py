@@ -2,7 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from emissor.utils.validators import validate_date, validate_monetary
+from emissor.utils.validators import (
+    validate_c_nbs,
+    validate_c_pais_result,
+    validate_c_trib_nac,
+    validate_cst_pis_cofins,
+    validate_date,
+    validate_monetary,
+    validate_percent,
+    validate_tp_moeda,
+)
 
 
 class TestValidateMonetary:
@@ -59,3 +68,129 @@ class TestValidateDate:
 
     def test_leap_year(self):
         assert validate_date("2024-02-29") == "2024-02-29"
+
+
+class TestValidateCTribNac:
+    def test_valid(self):
+        assert validate_c_trib_nac("010401") == "010401"
+
+    def test_valid_all_zeros(self):
+        assert validate_c_trib_nac("000000") == "000000"
+
+    def test_too_short(self):
+        with pytest.raises(ValueError, match="6 digitos"):
+            validate_c_trib_nac("01040")
+
+    def test_too_long(self):
+        with pytest.raises(ValueError, match="6 digitos"):
+            validate_c_trib_nac("0104011")
+
+    def test_non_numeric(self):
+        with pytest.raises(ValueError, match="6 digitos"):
+            validate_c_trib_nac("01040a")
+
+    def test_empty(self):
+        with pytest.raises(ValueError, match="6 digitos"):
+            validate_c_trib_nac("")
+
+
+class TestValidateCNbs:
+    def test_valid(self):
+        assert validate_c_nbs("123456789") == "123456789"
+
+    def test_too_short(self):
+        with pytest.raises(ValueError, match="9 digitos"):
+            validate_c_nbs("12345678")
+
+    def test_too_long(self):
+        with pytest.raises(ValueError, match="9 digitos"):
+            validate_c_nbs("1234567890")
+
+    def test_non_numeric(self):
+        with pytest.raises(ValueError, match="9 digitos"):
+            validate_c_nbs("12345678a")
+
+
+class TestValidateTpMoeda:
+    def test_valid_usd(self):
+        assert validate_tp_moeda("220") == "220"
+
+    def test_valid_eur(self):
+        assert validate_tp_moeda("978") == "978"
+
+    def test_too_short(self):
+        with pytest.raises(ValueError, match="3 digitos"):
+            validate_tp_moeda("22")
+
+    def test_too_long(self):
+        with pytest.raises(ValueError, match="3 digitos"):
+            validate_tp_moeda("2200")
+
+    def test_non_numeric(self):
+        with pytest.raises(ValueError, match="3 digitos"):
+            validate_tp_moeda("abc")
+
+
+class TestValidateCPaisResult:
+    def test_valid_us(self):
+        assert validate_c_pais_result("US") == "US"
+
+    def test_valid_de(self):
+        assert validate_c_pais_result("DE") == "DE"
+
+    def test_lowercase(self):
+        with pytest.raises(ValueError, match="2 letras maiusculas"):
+            validate_c_pais_result("us")
+
+    def test_three_chars(self):
+        with pytest.raises(ValueError, match="2 letras maiusculas"):
+            validate_c_pais_result("USA")
+
+    def test_digits(self):
+        with pytest.raises(ValueError, match="2 letras maiusculas"):
+            validate_c_pais_result("12")
+
+
+class TestValidateCstPisCofins:
+    def test_valid_01(self):
+        assert validate_cst_pis_cofins("01") == "01"
+
+    def test_valid_08(self):
+        assert validate_cst_pis_cofins("08") == "08"
+
+    def test_valid_99(self):
+        assert validate_cst_pis_cofins("99") == "99"
+
+    def test_invalid_00(self):
+        with pytest.raises(ValueError, match="codigo invalido"):
+            validate_cst_pis_cofins("00")
+
+    def test_non_numeric(self):
+        with pytest.raises(ValueError, match="codigo invalido"):
+            validate_cst_pis_cofins("ab")
+
+
+class TestValidatePercent:
+    def test_zero(self):
+        assert validate_percent("0") == "0.00"
+
+    def test_hundred(self):
+        assert validate_percent("100") == "100.00"
+
+    def test_normalizes_precision(self):
+        assert validate_percent("15.5") == "15.50"
+
+    def test_decimal(self):
+        assert validate_percent("33.33") == "33.33"
+
+    def test_negative(self):
+        with pytest.raises(ValueError, match=r"entre 0\.00 e 100\.00"):
+            validate_percent("-1")
+
+    def test_over_hundred(self):
+        with pytest.raises(ValueError, match=r"entre 0\.00 e 100\.00"):
+            validate_percent("100.01")
+
+    def test_non_numeric(self):
+        with pytest.raises(ValueError, match="invalido"):
+            validate_percent("abc")
