@@ -1,8 +1,65 @@
 from __future__ import annotations
 
+import json
+import logging
+
 from requests_pkcs12 import post
 
 from emissor.config import ENDPOINTS
+from emissor.services.exceptions import SefinRejectError
+
+logger = logging.getLogger(__name__)
+
+
+def _format_erros(erros: object) -> str:
+    """Format an ``erros`` field value as a human-readable string."""
+    if isinstance(erros, list):
+        return "; ".join(str(e) for e in erros)
+    return str(erros)
+
+
+def _extract_reason(data: dict) -> str:
+    """Best-effort extraction of a human-readable rejection reason."""
+    for key in ("xMotivo", "mensagem", "message"):
+        val = data.get(key)
+        if val:
+            return str(val)
+    erros = data.get("erros")
+    if erros:
+        return _format_erros(erros)
+    return json.dumps(data, ensure_ascii=False)[:200]
+
+
+def _check_error_payload(data: dict) -> None:
+    """Raise SefinRejectError if the response contains known error indicators."""
+    erros = data.get("erros")
+    if erros:
+        raise SefinRejectError(_format_erros(erros), response=data)
+
+    mensagem = data.get("mensagem")
+    if mensagem:
+        raise SefinRejectError(str(mensagem), response=data)
+
+    c_stat = data.get("cStat")
+    if c_stat is not None and str(c_stat) not in ("100", "150"):
+        motivo = data.get("xMotivo", "Código de status rejeitado")
+        raise SefinRejectError(f"cStat {c_stat}: {motivo}", response=data)
+
+
+def _validate_response(data: dict) -> None:
+    """Validate the SEFIN response body after a successful HTTP call."""
+    _check_error_payload(data)
+
+    ch_nfse = data.get("chNFSe")
+    if not ch_nfse or not str(ch_nfse).strip():
+        reason = _extract_reason(data)
+        raise SefinRejectError(
+            f"Resposta sem chave de acesso (chNFSe): {reason}",
+            response=data,
+        )
+
+    if not data.get("nNFSe"):
+        logger.warning("Resposta sem nNFSe — usando chNFSe como identificador")
 
 
 def emit_nfse(
@@ -29,4 +86,7 @@ def emit_nfse(
     if not resp.ok:
         body = resp.text[:500] if resp.text else ""
         raise RuntimeError(f"SEFIN API error ({resp.status_code}): {body}")
-    return resp.json()
+
+    data = resp.json()
+    _validate_response(data)
+    return data

@@ -504,6 +504,44 @@ async def test_submit_producao_shows_confirm_dialog(mock_config):
 
 
 @pytest.mark.asyncio
+async def test_submit_sefin_reject_shows_error(mock_config):
+    from emissor.services.exceptions import SefinRejectError
+
+    mock_prepared = _make_mock_prepared()
+
+    with (
+        patch("emissor.services.emission.prepare", return_value=mock_prepared),
+        patch(
+            "emissor.services.emission.submit",
+            side_effect=SefinRejectError("cStat 204: CNPJ invalido"),
+        ),
+    ):
+        app = EmissorApp(env="homologacao")
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            await pilot.pause()
+            screen = app.screen
+
+            await _navigate_to_step4(screen, pilot)
+
+            screen.query_one("#btn-enviar", Button).press()
+            await pilot.pause()
+            await pilot.pause()
+
+            # Should stay on step 4 (not show result)
+            assert screen.query_one("#result-container").display is False
+
+            # Buttons re-enabled
+            assert screen.query_one("#btn-enviar", Button).disabled is False
+            assert screen.query_one("#btn-salvar", Button).disabled is False
+
+            # Error message shown
+            status_text = screen.query_one("#status-label", Label).render().plain
+            assert "SEFIN rejeitou" in status_text
+            assert "CNPJ invalido" in status_text
+
+
+@pytest.mark.asyncio
 async def test_submit_error_re_enables_buttons(mock_config):
     mock_prepared = _make_mock_prepared()
 

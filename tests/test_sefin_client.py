@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from emissor.services.exceptions import SefinRejectError
 from emissor.services.sefin_client import emit_nfse
+
+_VALID_RESPONSE = {"chNFSe": "test"}
 
 
 def _mock_response(ok: bool = True, status_code: int = 200, json_data=None, text: str = ""):
     resp = MagicMock()
     resp.ok = ok
     resp.status_code = status_code
-    resp.json.return_value = json_data or {}
+    resp.json.return_value = json_data if json_data is not None else _VALID_RESPONSE
     resp.text = text
     return resp
 
@@ -56,10 +60,7 @@ class TestEmitNfse:
         mock_post.return_value = _mock_response(ok=False, status_code=500, text=long_body)
         with pytest.raises(RuntimeError) as exc_info:
             emit_nfse("b64", "/cert.pfx", "pass")
-        # Body in error message should be truncated to 500 chars
         error_msg = str(exc_info.value)
-        # The body part after the status code prefix
-        assert len(long_body[:500]) == 500
         assert "x" * 500 in error_msg
         assert "x" * 501 not in error_msg
 
@@ -70,3 +71,69 @@ class TestEmitNfse:
         _, kwargs = mock_post.call_args
         assert kwargs["pkcs12_filename"] == "/my/cert.pfx"
         assert kwargs["pkcs12_password"] == "mypass"
+
+    # --- Response validation tests ---
+
+    @patch("emissor.services.sefin_client.post")
+    def test_missing_ch_nfse_raises_reject(self, mock_post):
+        mock_post.return_value = _mock_response(json_data={"nNFSe": "42"})
+        with pytest.raises(SefinRejectError, match="chNFSe"):
+            emit_nfse("b64", "/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.post")
+    def test_blank_ch_nfse_raises_reject(self, mock_post):
+        mock_post.return_value = _mock_response(json_data={"chNFSe": ""})
+        with pytest.raises(SefinRejectError, match="chNFSe"):
+            emit_nfse("b64", "/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.post")
+    def test_error_payload_erros_field(self, mock_post):
+        mock_post.return_value = _mock_response(
+            json_data={"erros": ["DPS inválida", "CNPJ divergente"]}
+        )
+        with pytest.raises(SefinRejectError, match="DPS inválida"):
+            emit_nfse("b64", "/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.post")
+    def test_error_payload_mensagem_field(self, mock_post):
+        mock_post.return_value = _mock_response(json_data={"mensagem": "Certificado expirado"})
+        with pytest.raises(SefinRejectError, match="Certificado expirado"):
+            emit_nfse("b64", "/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.post")
+    def test_error_payload_cstat_rejection(self, mock_post):
+        mock_post.return_value = _mock_response(
+            json_data={"cStat": "204", "xMotivo": "Rejeicao: CNPJ invalido", "chNFSe": "x"}
+        )
+        with pytest.raises(SefinRejectError, match="cStat 204"):
+            emit_nfse("b64", "/cert.pfx", "pass")
+
+    @patch("emissor.services.sefin_client.post")
+    def test_cstat_100_succeeds(self, mock_post):
+        mock_post.return_value = _mock_response(
+            json_data={"cStat": "100", "chNFSe": "abc123", "nNFSe": "1"}
+        )
+        result = emit_nfse("b64", "/cert.pfx", "pass")
+        assert result["chNFSe"] == "abc123"
+
+    @patch("emissor.services.sefin_client.post")
+    def test_reject_error_carries_response(self, mock_post):
+        payload = {"erros": ["bad data"]}
+        mock_post.return_value = _mock_response(json_data=payload)
+        with pytest.raises(SefinRejectError) as exc_info:
+            emit_nfse("b64", "/cert.pfx", "pass")
+        assert exc_info.value.response == payload
+
+    @patch("emissor.services.sefin_client.post")
+    def test_missing_n_nfse_warns(self, mock_post, caplog):
+        mock_post.return_value = _mock_response(json_data={"chNFSe": "abc123"})
+        with caplog.at_level(logging.WARNING):
+            result = emit_nfse("b64", "/cert.pfx", "pass")
+        assert result["chNFSe"] == "abc123"
+        assert "nNFSe" in caplog.text
+
+    @patch("emissor.services.sefin_client.post")
+    def test_empty_response_raises_reject(self, mock_post):
+        mock_post.return_value = _mock_response(json_data={})
+        with pytest.raises(SefinRejectError, match="chNFSe"):
+            emit_nfse("b64", "/cert.pfx", "pass")

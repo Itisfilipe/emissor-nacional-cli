@@ -20,9 +20,7 @@ from textual.widgets import (
     Static,
 )
 
-if TYPE_CHECKING:
-    from emissor.services.emission import PreparedDPS
-
+from emissor.services.exceptions import SefinRejectError
 from emissor.tui.options import (
     MD_PRESTACAO_OPTIONS,
     MDIC_OPTIONS,
@@ -34,7 +32,35 @@ from emissor.tui.options import (
     VINC_PREST_OPTIONS,
 )
 
+if TYPE_CHECKING:
+    from emissor.services.emission import PreparedDPS
+
 logger = logging.getLogger(__name__)
+
+# Mapping from override field name to CSS selector, split by widget type.
+# Used both when populating the form from saved overrides and when collecting
+# values back from the form.
+_INPUT_FIELDS: dict[str, str] = {
+    "x_desc_serv": "#x-desc-serv",
+    "c_trib_nac": "#c-trib-nac",
+    "c_nbs": "#c-nbs",
+    "tp_moeda": "#tp-moeda",
+    "c_pais_result": "#c-pais-result",
+    "cst_pis_cofins": "#cst-pis-cofins",
+    "p_tot_trib_fed": "#p-tot-trib-fed",
+    "p_tot_trib_est": "#p-tot-trib-est",
+    "p_tot_trib_mun": "#p-tot-trib-mun",
+}
+_SELECT_FIELDS: dict[str, str] = {
+    "md_prestacao": "#md-prestacao",
+    "vinc_prest": "#vinc-prest",
+    "mec_af_comex_p": "#mec-af-comex-p",
+    "mec_af_comex_t": "#mec-af-comex-t",
+    "mov_temp_bens": "#mov-temp-bens",
+    "mdic": "#mdic",
+    "trib_issqn": "#trib-issqn",
+    "tp_ret_issqn": "#tp-ret-issqn",
+}
 
 STEPS = ["pessoas", "servico", "valores", "revisao"]
 STEP_LABELS = [
@@ -336,7 +362,9 @@ class NewInvoiceScreen(ModalScreen):
 
     def on_select_changed(self, event: Select.Changed) -> None:
         if event.select.id == "client-select" and event.value is not Select.BLANK:
-            self._load_client_defaults(str(event.value))
+            client_slug = str(event.value)
+            self._load_client_defaults(client_slug)
+            self._load_last_overrides(client_slug)
 
     @work(thread=True)
     def _load_client_defaults(self, client_name: str) -> None:
@@ -353,6 +381,35 @@ class NewInvoiceScreen(ModalScreen):
     def _fill_client_fields(self, client) -> None:
         self.query_one("#mec-af-comex-p", Select).value = client.mec_af_comex_p
         self.query_one("#mec-af-comex-t", Select).value = client.mec_af_comex_t
+
+    @work(thread=True)
+    def _load_last_overrides(self, client_slug: str) -> None:
+        """Pre-fill Steps 2/3 from the last invoice for this client."""
+        try:
+            from emissor.utils.registry import get_last_overrides
+
+            env = self.app.env  # type: ignore[attr-defined]
+            overrides = get_last_overrides(client_slug, env)
+            if overrides:
+                self.app.call_from_thread(self._fill_last_overrides, overrides, client_slug)
+        except Exception:
+            logger.debug("Failed to load last overrides for %s", client_slug, exc_info=True)
+
+    def _fill_last_overrides(self, overrides: dict[str, str], client_slug: str) -> None:
+        """Apply override values from the last invoice to Input and Select widgets."""
+        for field_name, selector in _INPUT_FIELDS.items():
+            value = overrides.get(field_name)
+            if value is not None:
+                self.query_one(selector, Input).value = value
+        for field_name, selector in _SELECT_FIELDS.items():
+            value = overrides.get(field_name)
+            if value is not None:
+                self.query_one(selector, Select).value = value
+        self.notify(
+            f"Campos carregados da ultima NFS-e para {client_slug}",
+            severity="information",
+            timeout=3,
+        )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         match event.button.id:
@@ -473,33 +530,12 @@ class NewInvoiceScreen(ModalScreen):
 
     def _collect_overrides(self) -> dict[str, str]:
         """Collect non-empty/non-placeholder override values from Steps 2 and 3."""
-        input_field_map = {
-            "#x-desc-serv": "x_desc_serv",
-            "#c-trib-nac": "c_trib_nac",
-            "#c-nbs": "c_nbs",
-            "#tp-moeda": "tp_moeda",
-            "#c-pais-result": "c_pais_result",
-            "#cst-pis-cofins": "cst_pis_cofins",
-            "#p-tot-trib-fed": "p_tot_trib_fed",
-            "#p-tot-trib-est": "p_tot_trib_est",
-            "#p-tot-trib-mun": "p_tot_trib_mun",
-        }
-        select_field_map = {
-            "#md-prestacao": "md_prestacao",
-            "#vinc-prest": "vinc_prest",
-            "#mec-af-comex-p": "mec_af_comex_p",
-            "#mec-af-comex-t": "mec_af_comex_t",
-            "#mov-temp-bens": "mov_temp_bens",
-            "#mdic": "mdic",
-            "#trib-issqn": "trib_issqn",
-            "#tp-ret-issqn": "tp_ret_issqn",
-        }
         overrides: dict[str, str] = {}
-        for selector, field_name in input_field_map.items():
+        for field_name, selector in _INPUT_FIELDS.items():
             val = self.query_one(selector, Input).value.strip()
             if val:
                 overrides[field_name] = val
-        for selector, field_name in select_field_map.items():
+        for field_name, selector in _SELECT_FIELDS.items():
             sel = self.query_one(selector, Select)
             if sel.value is not Select.BLANK:
                 overrides[field_name] = str(sel.value)
@@ -621,14 +657,20 @@ class NewInvoiceScreen(ModalScreen):
 
             result = submit(prepared)
             self.app.call_from_thread(self._show_result, result)
+        except SefinRejectError as e:
+            self.app.call_from_thread(self._on_submit_error, f"SEFIN rejeitou a NFS-e: {e}")
         except Exception as e:
             self.app.call_from_thread(self._on_submit_error, f"Erro ao enviar: {e}")
 
     def _show_result(self, result: dict) -> None:
         resp = result.get("response") or {}
-        ch_nfse = resp.get("chNFSe", "N/A")
+        ch_nfse = resp.get("chNFSe", "")
         n_nfse = resp.get("nNFSe", "N/A")
         saved = result.get("saved_to", "")
+
+        if not ch_nfse:
+            self._on_submit_error("Resposta sem chave de acesso (chNFSe)")
+            return
 
         text = f"NFS-e emitida com sucesso!\n\nChave de acesso: {ch_nfse}\nnNFSe: {n_nfse}"
         if saved:
@@ -676,19 +718,28 @@ class NewInvoiceScreen(ModalScreen):
         except Exception as e:
             self.app.call_from_thread(self._on_submit_error, f"Erro ao salvar: {e}")
 
+    def _get_result_chave(self) -> str | None:
+        """Return the result chave if valid, or None."""
+        ch = self._result_ch_nfse
+        if not ch or ch == "N/A":
+            return None
+        return ch
+
     def _open_pdf(self) -> None:
-        if not self._result_ch_nfse or self._result_ch_nfse == "N/A":
+        chave = self._get_result_chave()
+        if not chave:
             return
         from emissor.tui.screens.download_pdf import DownloadPdfScreen
 
-        self.app.push_screen(DownloadPdfScreen(chave=self._result_ch_nfse))
+        self.app.push_screen(DownloadPdfScreen(chave=chave))
 
     def _open_query(self) -> None:
-        if not self._result_ch_nfse or self._result_ch_nfse == "N/A":
+        chave = self._get_result_chave()
+        if not chave:
             return
         from emissor.tui.screens.query import QueryScreen
 
-        self.app.push_screen(QueryScreen(chave=self._result_ch_nfse))
+        self.app.push_screen(QueryScreen(chave=chave))
 
     def on_key(self, event: Key) -> None:
         focused = self.app.focused
