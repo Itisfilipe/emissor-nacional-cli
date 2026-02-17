@@ -58,7 +58,7 @@ def _calc_delay(attempt: int, policy: RetryPolicy) -> float:
 
     *attempt* is 0-indexed (0 = delay after first failure).
     """
-    delay = policy.base_delay * (policy.backoff_factor ** attempt)
+    delay = policy.base_delay * (policy.backoff_factor**attempt)
     delay = min(delay, policy.max_delay)
     jitter_range = delay * policy.jitter
     delay += random.uniform(-jitter_range, jitter_range)

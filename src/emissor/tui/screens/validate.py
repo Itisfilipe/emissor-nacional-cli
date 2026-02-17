@@ -123,9 +123,7 @@ class ValidateScreen(ModalScreen):
 
             health = check_registry_health()
             if health.registry_ok:
-                lines.append(
-                    f"[green]OK[/green] Registro local: {health.registry_count} nota(s)"
-                )
+                lines.append(f"[green]OK[/green] Registro local: {health.registry_count} nota(s)")
             else:
                 lines.append("[red]ERRO[/red] Registro local: arquivo corrompido")
             for b in health.registry_corrupt_backups:

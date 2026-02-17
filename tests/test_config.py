@@ -60,8 +60,9 @@ class TestCertEnv:
 
     def test_get_cert_password_raises_missing(self, monkeypatch):
         monkeypatch.delenv("CERT_PFX_PASSWORD", raising=False)
-        with patch.object(config_mod, "_get_keyring_password", return_value=None), pytest.raises(
-            KeyError
+        with (
+            patch.object(config_mod, "_get_keyring_password", return_value=None),
+            pytest.raises(KeyError),
         ):
             config_mod.get_cert_password()
 

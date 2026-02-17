@@ -78,17 +78,13 @@ class TestEmitNfse:
 
     @patch("emissor.services.sefin_client.post")
     def test_missing_ch_nfse_raises_reject(self, mock_post):
-        mock_post.return_value = _mock_response(
-            json_data={"nNFSe": "42", "cStat": "100"}
-        )
+        mock_post.return_value = _mock_response(json_data={"nNFSe": "42", "cStat": "100"})
         with pytest.raises(SefinRejectError, match="chNFSe"):
             emit_nfse("b64", "/cert.pfx", "pass")
 
     @patch("emissor.services.sefin_client.post")
     def test_blank_ch_nfse_raises_reject(self, mock_post):
-        mock_post.return_value = _mock_response(
-            json_data={"chNFSe": "", "cStat": "100"}
-        )
+        mock_post.return_value = _mock_response(json_data={"chNFSe": "", "cStat": "100"})
         with pytest.raises(SefinRejectError, match="chNFSe"):
             emit_nfse("b64", "/cert.pfx", "pass")
 
@@ -132,17 +128,13 @@ class TestEmitNfse:
 
     @patch("emissor.services.sefin_client.post")
     def test_missing_n_nfse_raises_reject(self, mock_post):
-        mock_post.return_value = _mock_response(
-            json_data={"chNFSe": "abc123", "cStat": "100"}
-        )
+        mock_post.return_value = _mock_response(json_data={"chNFSe": "abc123", "cStat": "100"})
         with pytest.raises(SefinRejectError, match="nNFSe"):
             emit_nfse("b64", "/cert.pfx", "pass")
 
     @patch("emissor.services.sefin_client.post")
     def test_missing_cstat_raises_reject(self, mock_post):
-        mock_post.return_value = _mock_response(
-            json_data={"chNFSe": "abc123", "nNFSe": "1"}
-        )
+        mock_post.return_value = _mock_response(json_data={"chNFSe": "abc123", "nNFSe": "1"})
         with pytest.raises(SefinRejectError, match="cStat"):
             emit_nfse("b64", "/cert.pfx", "pass")
 

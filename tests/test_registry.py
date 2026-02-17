@@ -376,9 +376,7 @@ def test_update_invoice_promotes_draft(tmp_path):
         patch("emissor.utils.registry._registry_path", return_value=rp),
         patch("emissor.utils.registry._locked"),
     ):
-        add_invoice(
-            "draft_homologacao_10", n_dps=10, env="homologacao", status="preparada"
-        )
+        add_invoice("draft_homologacao_10", n_dps=10, env="homologacao", status="preparada")
         result = update_invoice(
             n_dps=10, env="homologacao", status="emitida", chave="NFSe_REAL_123"
         )

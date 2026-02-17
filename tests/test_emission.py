@@ -197,9 +197,7 @@ class TestDraftAndPromote:
         emission_mod.prepare("acme", "1000.00", "200.00", "2025-12-30")
         mock_add = _patch_emission["mock_add"]
         # Find the call with status="preparada" (draft creation)
-        draft_calls = [
-            c for c in mock_add.call_args_list if c[1].get("status") == "preparada"
-        ]
+        draft_calls = [c for c in mock_add.call_args_list if c[1].get("status") == "preparada"]
         assert len(draft_calls) == 1
         call_kwargs = draft_calls[0][1]
         assert call_kwargs["n_dps"] == 42
