@@ -122,6 +122,23 @@ class TestClient:
         assert c.mec_af_comex_p == "02"
         assert c.mec_af_comex_t == "02"
 
+    def test_from_dict_pads_comex_values(self):
+        """YAML numeric values like 2 become '02', not '2'."""
+        d = {
+            "nif": "111",
+            "nome": "X",
+            "logradouro": "X",
+            "numero": "1",
+            "cidade": "X",
+            "estado": "X",
+            "cep": "00000",
+            "mec_af_comex_p": 2,
+            "mec_af_comex_t": 8,
+        }
+        c = Client.from_dict(d)
+        assert c.mec_af_comex_p == "02"
+        assert c.mec_af_comex_t == "08"
+
     def test_from_dict_missing_required(self):
         with pytest.raises(KeyError):
             Client.from_dict({"nome": "X"})
